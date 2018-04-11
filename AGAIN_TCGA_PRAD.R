@@ -42,7 +42,7 @@ if(file.exists(RDSfile)){
 ##这里我们使用data.table的.SD方法
 library(data.table)
 rna_seq_data=data.table(rna_seq_data)
-receive=message(cat("发现重复基因？",as.character(nrow(rna_seq_data)!=length(unique(rna_seq_data$Hugo_Symbol)))))
+receive=message(cat("发现重复基因",as.character(nrow(rna_seq_data)!=length(unique(rna_seq_data$Hugo_Symbol)))))
 rna_seq_data=rna_seq_data[,lapply(.SD,max),by=.(Hugo_Symbol),.SDcols=colnames(rna_seq_data)[c(2:ncol(rna_seq_data))]]
 rna_seq_data=na.omit(as.data.frame(rna_seq_data))
 rownames(rna_seq_data)=rna_seq_data$Hugo_Symbol
@@ -75,6 +75,8 @@ shell.exec(paste(out_put_dir,sep=""))
 ###开始进行聚类
 fix(rna_seq_data)
 geneSignatures=c("ANPEP","CD38","CSF3","CXCR2","CD80","IDO","SLEB2","CD274","PTPRC","TLR3","CEACAM8","STAT1","CXCR4","LOC116196","CSF1R","ITGAM","ITGAX","CD14","TGFB1","CXCL12","LOC199828","ENTPD1","FUT4","STAT3","IL4R","STAT5A","TLR4","CSF2","CXCL8","S100A8","S100A9","TNF")
+# geneSignatures0=c("ARG1","CCL2","CD40","IL4R","FCGR2A","CD68","CD33","CSF1R","ITGAM","HLA-DRB1","FOXP3","PDCDILG2","CD163","LY75","PTPRC","CCR2","CD200R1","IL10","FCER2")
+# geneSignatures=c("ARG1","CCL2","CD40","IL4R","FCGR2A","CD68","LOC116196","CSF1R","ITGAM","HLA-DRB1","JM2","PDCD1LG2","CD163","LY75","PTPRC","LOC90262","CD200R1","IL10","FCER2")
 data2use=rna_seq_data[geneSignatures,];
 rownames(data2use)=geneSignatures;fix(data2use)
 ###完成了数据的提取，下面进行数据的预处理，分为两部分，复制出一部分进行data_plot
@@ -88,13 +90,13 @@ data_plot=data2use
   };fix(data_plot)
 ##进行数据的处理，例如log2,normalize
 library(lattice)
-win.graph();densityplot(unlist(data_plot));Sys.sleep(5);dev.off()
+#win.graph();densityplot(unlist(data_plot));Sys.sleep(5);dev.off()
 {"进行log2处理！"}
 data_plot=log2(data_plot+1)
 win.graph();densityplot(unlist(data_plot));Sys.sleep(5);dev.off()
 {"进行scale处理"}
 data_plot=data.frame(t(scale(t(data_plot)+1)))
-win.graph();densityplot(unlist(data_plot));Sys.sleep(5);dev.off()
+#win.graph();densityplot(unlist(data_plot));Sys.sleep(5);dev.off()
 
 ####开始进行热图的绘制
 ##计算break
@@ -102,7 +104,7 @@ goHeatmap=function(d1=data_plot,distmethod="euclidean",clustmethod="average"){
   PERCENTILE=0.01;lowQ=as.numeric(quantile(unlist(data_plot),PERCENTILE,na.rm = TRUE));highQ=as.numeric(quantile(unlist(data_plot),1-PERCENTILE,na.rm = TRUE))
   BREAKS=c(min(data_plot)-0.01,seq(lowQ,highQ,0.005),max(data_plot)+0.01)
   library(factoextra)
-  print("自定义聚类函数")
+   print("自定义聚类函数")
   myClust<-function(x,aclustmethod=clustmethod){
     hclust(x,method=aclustmethod)
   }
@@ -127,7 +129,7 @@ goHeatmap=function(d1=data_plot,distmethod="euclidean",clustmethod="average"){
                main = paste("distmethod",distmethod,"clustermethod",clustmethod,sep="_")
                #,lmat=rbind(c(0,3,0),c(0,1,2),c(0,4,0)) ,lhei=c(3,10,3),lwid=c(1,9,1)
   )
-  hm
+  return(hm)
 }
 
 
@@ -154,95 +156,132 @@ Dist_Methods<-  c("euclidean"
 for(a in dev.list()){
   dev.off()
 }
+
+if(FALSE){
 for(onedistmethod in Dist_Methods){
   for(oneclustmethod in Cluster_Method){
     win.graph();
     goHeatmap(d1=data_plot,distmethod = onedistmethod,clustmethod = oneclustmethod)
   }
-}
+}}
 
-###分组绘制图形
-  dist=get_dist(x=t(data_plot),method = "euclidean")
-  hc=hclust(d=dist,method = "ward")
-  hcc=data.frame(cutree(tree = hc,k=5));colnames(hcc)="treeIndex"
-  hcc[,"Sample"]=rownames(hcc)
-  data_getGene0=data.frame(t(rna_seq_data[getGene0,])[c(-1,-2),]);colnames(data_getGene0)="Value";data_getGene0[,"Sample"]=rownames(data_getGene0)
-  hcc=merge(hcc,data_getGene0,by.x = "Sample",by.y ="Sample",all = TRUE )
-  for(one in unique(hcc$treeIndex)){
-    ##从热图获取区块数据
-    get_block_average=data_plot[,hcc[which(hcc$treeIndex==one),"Sample"]]
-    meanV=mean(as.numeric(as.character(unlist(get_block_average))))
-    print(meanV)
-    hcc[which(hcc$treeIndex==one),"groupMean"]=meanV
-  }
-  hcc=hcc[order(hcc$groupMean),]
-  ranks=1
-  for(onemean in sort(unique(hcc$groupMean))){
-    print(onemean)
-    hcc[which(hcc$groupMean==onemean),"rank_low2high"]=paste("low2high",ranks,sep="_")
-    ranks<<-ranks+1
-  }
-  
-  rankindex=data.frame(unique(hcc$groupMean));colnames(rankindex)="groupMean";rownames(rankindex)=rankindex$groupMean;
-  hcc2=hclust(get_dist(rankindex,method = "euclidean"),method = "average");plot(hcc2)
-  hcc2=data.frame(cutree(hcc2,k=3));plot(hcc2);colnames(hcc2)="rank_group_index";hcc2[,"groupMean"]=rownames(hcc2)
-  hcc2$rank_group_index=paste("rank_group_index",hcc2$rank_group_index,sep = "_")
-  ##合并重新分组后的
-  hcc=merge(hcc,hcc2,by.x ="groupMean",by.y="groupMean")
-  hcc$Value=as.numeric(hcc$Value)
-  for(one in unique(hcc$rank_group_index)){
-    hcc[which(hcc$rank_group_index==one),"group_count"]=length(which(hcc$rank_group_index==one))
-  }
-  ##进行排序
-  my_comparision_matrix=as.data.frame(t(combn(x=unique(hcc$rank_group_index),2)))
-  colnames(my_comparision_matrix)=c("first","second")
-  for(onerow in c(1:nrow(my_comparision_matrix))){
-    my_comparision_matrix[onerow,"differ"]=as.numeric(stringi::stri_sub(str=my_comparision_matrix[onerow,"second"],from = stringi::stri_length(my_comparision_matrix[onerow,"second"])))-
-      as.numeric(stringi::stri_sub(str=my_comparision_matrix[onerow,"first"],from = stringi::stri_length(my_comparision_matrix[onerow,"second"])))
-  }
-  ##按照差值进行排序
-  my_comparision_matrix=my_comparision_matrix[order(my_comparision_matrix$first),]
-  my_comparision_matrix=my_comparision_matrix[order(my_comparision_matrix$differ),]
-  my_comparisons <- list()
-  for(one in c(1:nrow(my_comparision_matrix))){
-    oneterm=as.vector(c(as.character(my_comparision_matrix[one,"first"]),as.character(my_comparision_matrix[one,"second"])))
-    my_comparisons[[one]]=oneterm
-  }
-  
-  
-  ###绘制图形qlot
+
+
+goboxplot=function(d2=data_plot,getGene0_=getGene0,one_dist_method,one_clust_method){
+  ###??????????????????
+  library(factoextra)
+    dist=get_dist(x=t(d2),method = one_dist_method)
+    hc=hclust(d=dist,method = one_clust_method)
+    hcc=data.frame(cutree(tree = hc,k=7));colnames(hcc)="treeIndex"
+    hcc[,"Sample"]=rownames(hcc)
+    data_getGene0=data.frame(t(rna_seq_data[getGene0_,])[c(-1,-2),]);colnames(data_getGene0)="Value";data_getGene0[,"Sample"]=rownames(data_getGene0)
+    hcc=merge(hcc,data_getGene0,by.x = "Sample",by.y ="Sample",all = TRUE )
+    for(one in unique(hcc$treeIndex)){
+      ##从热图获取区块数据
+      get_block_average=d2[,hcc[which(hcc$treeIndex==one),"Sample"]]
+      meanV=mean(as.numeric(as.character(unlist(get_block_average))))
+      print(meanV)
+      hcc[which(hcc$treeIndex==one),"groupMean"]=meanV
+    }
+    hcc=hcc[order(hcc$groupMean),]
+    ranks=1
+    for(onemean in sort(unique(hcc$groupMean))){
+      hcc[which(hcc$groupMean==onemean),"rank_low2high"]=paste("low2high",ranks,sep="_")
+      ranks=ranks+1
+    };cat(sort(unique(hcc$groupMean)),"\n")
+    
+    rankindex=data.frame(unique(hcc$groupMean));colnames(rankindex)="groupMean";rownames(rankindex)=rankindex$groupMean;
+    hcc2=hclust(get_dist(rankindex,method = "euclidean"),method = "average");#win.graph();
+    plot(hcc2)
+    hcc2=data.frame(cutree(hcc2,k=3));colnames(hcc2)="rank_group_index";hcc2[,"groupMean"]=rownames(hcc2)
+    hcc2$rank_group_index=paste("rank_group_index",hcc2$rank_group_index,sep = "_")
+     ##合并重新分组后的
+    hcc=merge(hcc,hcc2,by.x ="groupMean",by.y="groupMean")
+    hcc$Value=as.numeric(hcc$Value)
+    for(one in unique(hcc$rank_group_index)){
+      hcc[which(hcc$rank_group_index==one),"group_count"]=length(which(hcc$rank_group_index==one))
+    }
+    
+    fix(hcc)
+   ##进行排序
+    my_comparision_matrix=as.data.frame(t(combn(x=unique(hcc$rank_group_index),2)))
+    colnames(my_comparision_matrix)=c("first","second")
+    for(onerow in c(1:nrow(my_comparision_matrix))){
+      my_comparision_matrix[onerow,"differ"]=as.numeric(stringi::stri_sub(str=my_comparision_matrix[onerow,"second"],from = stringi::stri_length(my_comparision_matrix[onerow,"second"])))-
+        as.numeric(stringi::stri_sub(str=my_comparision_matrix[onerow,"first"],from = stringi::stri_length(my_comparision_matrix[onerow,"second"])))
+    }
+    ##按照差值进行排序
+    my_comparision_matrix=my_comparision_matrix[order(my_comparision_matrix$first),]
+    my_comparision_matrix=my_comparision_matrix[order(my_comparision_matrix$differ),]
+    my_comparisons <- list()
+    for(one in c(1:nrow(my_comparision_matrix))){
+      oneterm=as.vector(c(as.character(my_comparision_matrix[one,"first"]),as.character(my_comparision_matrix[one,"second"])))
+      my_comparisons[[one]]=oneterm
+    }
+    
+    
+    ###绘制图形qlot
   library(ggpubr);
   ##十分之一percent，用于绘图
-  particle=max(diff(hcc$Value))/10
-  win.graph();q=qplot(data = hcc,x=rank_group_index,y=hcc$Value,geom = "boxplot",outlier.colour = "black",outlier.colour="black",
-                      ylab = getGene0)
-  q=q+ geom_jitter(aes(colour = rank_low2high))
-  q=q+geom_text(data = hcc,aes(label=paste("n=",group_count,sep=""),y=min(hcc$Value)-particle))
-  q=q+stat_compare_means(aes(label=paste0(..method..,"\n", "p=",..p.format..)),
-    comparisons = my_comparisons,paired = FALSE,#label = "pb.format",
-                         #hide.ns = FALSE,symnum.args = list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1), symbols = c("****", "***", "**", "*", "ns")),
-                         label.y = c(seq(max(hcc$Value),max(hcc$Value)+max(diff(hcc$Value))/10*10,particle))[c(1:3)]
-                        )
-  q=q+stat_compare_means(label.y = c(seq(max(hcc$Value),max(hcc$Value)+max(diff(hcc$Value))/10*10,particle))[4],
-                         )
-  q=q+geom_hline(yintercept = mean(hcc$Value), linetype=2)
-  q=q+stat_compare_means(label = "p.signif", method = "t.test", ref.group = ".all.",label.y =min(hcc$Value)-particle/2)# Pairwise comparison against all
-  q
-##########################################结束
+    particle=max(diff(hcc$Value))/10
+    #win.graph();
+    fix(hcc)
+    q=qplot(data = hcc,x=rank_group_index,y=hcc$Value,geom = "boxplot",outlier.colour = "black",outlier.colour="black",
+                        ylab = getGene0_,main = paste("dist_method",one_dist_method,"hclust_method",one_clust_method,sep = "_"))
+    q=q+ geom_jitter(aes(colour = rank_low2high))
+    q=q+geom_text(data = hcc,aes(label=paste("n=",group_count,sep=""),y=min(hcc$Value)-particle))
+    q=q+stat_compare_means(aes(label=paste0(..method..,"\n", "p=",..p.format..)),
+      comparisons = my_comparisons,paired = FALSE,#label = "pb.format",
+                           #hide.ns = FALSE,symnum.args = list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1), symbols = c("****", "***", "**", "*", "ns")),
+                           label.y = c(seq(max(hcc$Value),max(hcc$Value)+max(diff(hcc$Value))/10*10,particle))[c(1:3)]
+                          )
+    q=q+stat_compare_means(label.y = c(seq(max(hcc$Value),max(hcc$Value)+max(diff(hcc$Value))/10*10,particle))[4],
+                           )
+    q=q+geom_hline(yintercept = mean(hcc$Value), linetype=2)
+    q=q+stat_compare_means(label = "p.signif", method = "t.test", ref.group = ".all.",label.y =min(hcc$Value)-particle/2)# Pairwise comparison against all
+    return(q)
+}
+
+
+if(FALSE){
+for(onedistmethod in Dist_Methods){
+  for(oneclustmethod in Cluster_Method){
+    #win.graph();
+    q=goboxplot(d2=data_plot
+              ,getGene0_ = getGene0
+              ,one_dist_method = onedistmethod
+              ,one_clust_method = oneclustmethod
+              );plot(q)
+  }
+}
+}
+
+#######把图画在一起
+plot_together=function(){
+  for(onedistmethod in Dist_Methods){
+    for(oneclustmethod in Cluster_Method){
+      #win.graph();
+      h=goHeatmap(d1=data_plot,distmethod = onedistmethod,clustmethod = oneclustmethod);
+      h
+      #win.graph();
+      q=goboxplot(d2=data_plot
+                  ,getGene0_ = getGene0
+                  ,one_dist_method = onedistmethod
+                  ,one_clust_method = oneclustmethod
+      );plot(q)
+      
+    }
+  }
+}
 
 
 
 
 
 
+if(FALSE){
 
-
-
-
-
-
-
-##提取zbtb7a
+#提取zbtb7a
 data_refGene=rna_seq_data[ref_Gene,]
 if("Hugo_Symbol" %in% colnames(rna_seq_data)){
   data_refGene=data_refGene[,-which(colnames(data_refGene)=="Hugo_Symbol")] 
@@ -294,7 +333,7 @@ Sample_Alt=rownames(as.data.frame(t(Sample_Alt_Normal)[which(Sample_Alt_Normal==
 Sample_Alt=Sample_Alt[which(Sample_Alt %in% colnames(rna_seq_data))]
 Sample_Normal=rownames(as.data.frame(t(Sample_Alt_Normal)[which(abs(Sample_Alt_Normal)<2),]))
 Sample_Normal=Sample_Normal[which(Sample_Normal %in% colnames(rna_seq_data))]
-###画图
+##画图
 data_plot=as.data.frame(t(data_signatire))
 data_plot[Sample_Alt,"ALT"]=paste(ref_Gene1,"ALT",sep = "_")
 data_plot[Sample_Normal,"ALT"]=paste(ref_Gene1,"Normal",sep = "_")
@@ -313,3 +352,4 @@ ggboxplot(data=data_plot,x="ALT",y="CXCL5",
   geom_hline(yintercept = mean(data_plot[,getGene0]), linetype=2)+# Add horizontal line at base mean 
   stat_compare_means(method = "t.test") # Add global annova p-value 
 win.graph();plot(q)
+}
