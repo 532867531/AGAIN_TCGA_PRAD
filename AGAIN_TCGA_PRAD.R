@@ -220,25 +220,22 @@ goboxplot=function(d2=data_plot,getGene0_=getGene0,one_dist_method,one_clust_met
     };cat(sort(unique(hcc$groupMean)),"\n")
     
     
-    
-    
-    # rankindex=data.frame(unique(hcc$groupMean));colnames(rankindex)="groupMean";rownames(rankindex)=rankindex$groupMean;
-    # hcc2=hclust(get_dist(rankindex,method = "euclidean"),method = "average");#win.graph();
-    # plot(hcc2)
-    # hcc2=data.frame(cutree(hcc2,k=3));colnames(hcc2)="rank_group_index";hcc2[,"groupMean"]=rownames(hcc2)
-    # hcc2$rank_group_index=paste("rank_group_index",hcc2$rank_group_index,sep = "_")
-    #  ##合并重新分组后的
-    # hcc=merge(hcc,hcc2,by.x ="groupMean",by.y="groupMean")
+    rankindex=data.frame(unique(hcc$groupMean));colnames(rankindex)="groupMean";rownames(rankindex)=rankindex$groupMean;
+    hcc2=hclust(get_dist(rankindex,method = "euclidean"),method = "average");#win.graph();
+    plot(hcc2)
+    hcc2=data.frame(cutree(hcc2,k=3));colnames(hcc2)="rank_group_index";hcc2[,"groupMean"]=rownames(hcc2)
+    hcc2$rank_group_index=paste("rank_group_index",hcc2$rank_group_index,sep = "_")
+     ##合并重新分组后的
+    hcc=merge(hcc,hcc2,by.x ="groupMean",by.y="groupMean")
     hcc$Value=log2(as.numeric(hcc$Value))
     
     
    ###返回list循环输出
     return_list=list()
-for(shift in c(0:(k0-3))){
   #连续型组合,aggregate ("rank_low2high")  使用复制和更改的模式
-    hcc[,"rank_group_index"]=hcc$rank_low2high
-    combination_index=c(1:(k0-2))+shift   ##shiftMax=k0-3
-   hcc[which(hcc$rank_group_index %in% paste("low2high_",combination_index,sep = "")),"rank_group_index"]=paste("low2high_",combination_index[3],sep="")
+   #  hcc[,"rank_group_index"]=hcc$rank_low2high
+   #  combination_index=c(1:(k0-2))+shift   ##shiftMax=k0-3
+   # hcc[which(hcc$rank_group_index %in% paste("low2high_",combination_index,sep = "")),"rank_group_index"]=paste("low2high_",combination_index[3],sep="")
         
     for(one in unique(hcc$rank_group_index)){
       hcc[which(hcc$rank_group_index==one),"group_count"]=length(which(hcc$rank_group_index==one))
@@ -281,7 +278,7 @@ for(shift in c(0:(k0-3))){
     q=q+geom_hline(yintercept = mean(hcc$Value), linetype=2)
     q=q+stat_compare_means(label = "p.signif", method = "t.test", ref.group = ".all.",label.y =min(hcc$Value)-particle/2)# Pairwise comparison against all
     return_list[[length(return_list)+1]]=q
-}
+
     return(return_list)
 }
 
