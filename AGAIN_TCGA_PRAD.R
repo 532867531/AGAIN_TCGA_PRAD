@@ -164,21 +164,21 @@ goHeatmap=function(d1=data_plot,distmethod="euclidean",clustmethod="average"){
 ##############开始循环餐数
 Cluster_Method<-c( 
   "ward.D",
-  "ward.D2"#,
-  #"single",
-  #"complete",
-  #"average" ,
-  #"mcquitty",
-  #"median",
-  #"centroid"
+  "ward.D2",
+  "single",
+  "complete",
+  "average" ,
+  "mcquitty",
+  "median",
+  "centroid"
 )
 Dist_Methods<-  c("euclidean"
-                  #, "maximum"
-                  #, "manhattan" 
-                  #,"canberra", 
-                  #"binary", 
-                  #"minkowski",
-                  #"pearson", "spearman","kendall"
+                  , "maximum"
+                  , "manhattan" 
+                  ,"canberra", 
+                  "binary", 
+                  "minkowski",
+                  "pearson", "spearman","kendall"
 )
 
 # for(a in dev.list()){
@@ -214,7 +214,9 @@ goboxplot=function(d2=data_plot,getGene0_=getGene0,one_dist_method,one_clust_met
     }
     hcc=hcc[order(hcc$groupMean),]
     ranks=1
-    for(onemean in sort(unique(hcc$groupMean))){
+    
+
+   for(onemean in sort(unique(hcc$groupMean))){
       hcc[which(hcc$groupMean==onemean),"rank_low2high"]=paste("low2high",ranks,sep="_")
       ranks=ranks+1
     };cat(sort(unique(hcc$groupMean)),"\n")
@@ -241,7 +243,7 @@ goboxplot=function(d2=data_plot,getGene0_=getGene0,one_dist_method,one_clust_met
       hcc[which(hcc$rank_group_index==one),"group_count"]=length(which(hcc$rank_group_index==one))
     }
 
-    fix(hcc)
+    #fix(hcc)
    ##进行排序
     my_comparision_matrix=as.data.frame(t(combn(x=unique(hcc$rank_group_index),2)))
     colnames(my_comparision_matrix)=c("first","second")
@@ -263,8 +265,8 @@ goboxplot=function(d2=data_plot,getGene0_=getGene0,one_dist_method,one_clust_met
   library(ggpubr);
   ##十分之一percent，用于绘图
     particle=max(diff(hcc$Value))/10
-        fix(hcc)
-    q=qplot(data = hcc,x=rank_low2high,y=hcc$Value,geom = "boxplot",outlier.colour = "black",outlier.colour="black",
+      #  fix(hcc)
+    q=qplot(data = hcc,x=rank_group_index,y=hcc$Value,geom = "boxplot",outlier.colour = "black",outlier.colour="black",
                         ylab = paste("Log2(",getGene0_,")",sep = ""),main = paste("dist_method",one_dist_method,"hclust_method",one_clust_method,sep = "_"))
     q=q+ geom_jitter(aes(colour = rank_low2high))
     q=q+geom_text(data = hcc,aes(label=paste("n=",group_count,sep=""),y=min(hcc$Value)-particle))
