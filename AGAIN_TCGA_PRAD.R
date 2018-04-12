@@ -95,7 +95,7 @@ library(lattice)
 data_plot=log2(data_plot+1)
 #win.graph();densityplot(unlist(data_plot));Sys.sleep(5);dev.off()
 {"进行scale处理"}
-#data_plot=data.frame(t(scale(t(data_plot),center =TRUE,scale = TRUE)))
+data_plot=data.frame(t(scale(t(data_plot),center =TRUE,scale = TRUE)))
 #win.graph();densityplot(unlist(data_plot));Sys.sleep(5);dev.off()
 
 ####开始进行热图的绘制
@@ -137,17 +137,17 @@ goHeatmap=function(d1=data_plot,distmethod="euclidean",clustmethod="average"){
 ##############开始循环餐数
 Cluster_Method<-c( 
   "ward.D",
-  "ward.D2",
+  "ward.D2"#,
   #"single",
-  "complete",
-  "average" ,
+  #"complete",
+  #"average" ,
   #"mcquitty",
   #"median",
-  "centroid"
+  #"centroid"
 )
 Dist_Methods<-  c("euclidean"
                   #, "maximum"
-                  , "manhattan" 
+                  #, "manhattan" 
                   #,"canberra", 
                   #"binary", 
                   #"minkowski",
@@ -169,12 +169,12 @@ for(onedistmethod in Dist_Methods){
 
 
 
-goboxplot=function(d2=data_plot,getGene0_=getGene0,one_dist_method,one_clust_method){
+goboxplot=function(d2=data_plot,getGene0_=getGene0,one_dist_method,one_clust_method,k0=4){
   ###??????????????????
   library(factoextra)
     dist=get_dist(x=t(d2),method = one_dist_method)
     hc=hclust(d=dist,method = one_clust_method)
-    hcc=data.frame(cutree(tree = hc,k=3));colnames(hcc)="treeIndex"
+    hcc=data.frame(cutree(tree = hc,k=k0));colnames(hcc)="treeIndex"
     hcc[,"Sample"]=rownames(hcc)
     data_getGene0=data.frame(t(rna_seq_data[getGene0_,])[c(-1,-2),]);colnames(data_getGene0)="Value";data_getGene0[,"Sample"]=rownames(data_getGene0)
     hcc=merge(hcc,data_getGene0,by.x = "Sample",by.y ="Sample",all = TRUE )
@@ -192,14 +192,27 @@ goboxplot=function(d2=data_plot,getGene0_=getGene0,one_dist_method,one_clust_met
       ranks=ranks+1
     };cat(sort(unique(hcc$groupMean)),"\n")
     
-    rankindex=data.frame(unique(hcc$groupMean));colnames(rankindex)="groupMean";rownames(rankindex)=rankindex$groupMean;
-    hcc2=hclust(get_dist(rankindex,method = "euclidean"),method = "average");#win.graph();
-    plot(hcc2)
-    hcc2=data.frame(cutree(hcc2,k=3));colnames(hcc2)="rank_group_index";hcc2[,"groupMean"]=rownames(hcc2)
-    hcc2$rank_group_index=paste("rank_group_index",hcc2$rank_group_index,sep = "_")
-     ##合并重新分组后的
-    hcc=merge(hcc,hcc2,by.x ="groupMean",by.y="groupMean")
+    
+    
+    
+    # rankindex=data.frame(unique(hcc$groupMean));colnames(rankindex)="groupMean";rownames(rankindex)=rankindex$groupMean;
+    # hcc2=hclust(get_dist(rankindex,method = "euclidean"),method = "average");#win.graph();
+    # plot(hcc2)
+    # hcc2=data.frame(cutree(hcc2,k=3));colnames(hcc2)="rank_group_index";hcc2[,"groupMean"]=rownames(hcc2)
+    # hcc2$rank_group_index=paste("rank_group_index",hcc2$rank_group_index,sep = "_")
+    #  ##合并重新分组后的
+    # hcc=merge(hcc,hcc2,by.x ="groupMean",by.y="groupMean")
     hcc$Value=log2(as.numeric(hcc$Value))
+    
+    
+   ###返回list循环输出
+    return_list=list()
+for(shift in c(0:(k0-3))){
+  #连续型组合,aggregate ("rank_low2high")  使用复制和更改的模式
+    hcc[,"rank_group_index"]=hcc$rank_low2high
+    combination_index=c(1:(k0-2))+shift   ##shiftMax=k0-3
+   hcc[which(hcc$rank_group_index %in% paste("low2high_",combination_index,sep = "")),"rank_group_index"]=paste("low2high_",combination_index[3],sep="")
+        
     for(one in unique(hcc$rank_group_index)){
       hcc[which(hcc$rank_group_index==one),"group_count"]=length(which(hcc$rank_group_index==one))
     }
@@ -235,12 +248,14 @@ goboxplot=function(d2=data_plot,getGene0_=getGene0,one_dist_method,one_clust_met
       comparisons = my_comparisons,paired = FALSE,#label = "pb.format",
                            #hide.ns = FALSE,symnum.args = list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1), symbols = c("****", "***", "**", "*", "ns")),
                            label.y = c(seq(max(hcc$Value),max(hcc$Value)+max(diff(hcc$Value))/10*10,particle))[c(1:3)]
-                          )
+                          ,method = "t.test")
     q=q+stat_compare_means(label.y = c(seq(max(hcc$Value),max(hcc$Value)+max(diff(hcc$Value))/10*10,particle))[4],
                            )
     q=q+geom_hline(yintercept = mean(hcc$Value), linetype=2)
     q=q+stat_compare_means(label = "p.signif", method = "t.test", ref.group = ".all.",label.y =min(hcc$Value)-particle/2)# Pairwise comparison against all
-    return(q)
+    return_list[[length(return_list)+1]]=q
+}
+    return(return_list)
 }
 
 
@@ -265,15 +280,15 @@ plot_together=function(){
       h=goHeatmap(d1=data_plot,distmethod = onedistmethod,clustmethod = oneclustmethod);
       h
       #win.graph();
-      q=goboxplot(d2=data_plot
+      q1=goboxplot(d2=data_plot
                   ,getGene0_ = getGene0
                   ,one_dist_method = onedistmethod
                   ,one_clust_method = oneclustmethod
-      );plot(q)
-      
+      );
+      for(aq in q1){
+        plot(aq)
+      }
     }
   }
 }
-
-
-
+#plot_together()
