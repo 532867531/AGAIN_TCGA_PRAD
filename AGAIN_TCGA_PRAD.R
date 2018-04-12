@@ -114,22 +114,49 @@ goHeatmap=function(d1=data_plot,distmethod="euclidean",clustmethod="average"){
   }
   
   ##主要的绘图函数
-  library(gplots)
-  hm=heatmap.2(x=as.matrix(d1),col=colorRampPalette(c("blue", "white", "red"))(length(BREAKS)-1), distfun=myDist,hclustfun=myClust,
-               scale="none",
-               trace="none",
-               dendrogram = "column",
-               Rowv = TRUE,
-               Colv = TRUE,
-               sepcolor = "white",
-               symkey = TRUE,
-               #breaks = c(min(d1)-0.05,seq(-3,3,0.005),max(d1)+0.05)
-               # breaks = c(min(d1)-0.5,seq(-3,3,0.005),max(d1)+0.5)
-               breaks = BREAKS,
-               main = paste("distmethod",distmethod,"clustermethod",clustmethod,sep="_")
-               #,lmat=rbind(c(0,3,0),c(0,1,2),c(0,4,0)) ,lhei=c(3,10,3),lwid=c(0,9,1)
-  )
+  # library(gplots)
+  # hm=heatmap.2(x=as.matrix(d1),col=colorRampPalette(c("blue", "white", "red"))(length(BREAKS)-1), distfun=myDist,hclustfun=myClust,
+  #              scale="none",
+  #              trace="none",
+  #              dendrogram = "column",
+  #              Rowv = TRUE,
+  #              Colv = TRUE,
+  #              sepcolor = "white",
+  #              symkey = TRUE,
+  #              #breaks = c(min(d1)-0.05,seq(-3,3,0.005),max(d1)+0.05)
+  #              # breaks = c(min(d1)-0.5,seq(-3,3,0.005),max(d1)+0.5)
+  #              breaks = BREAKS,
+  #              main = paste("distmethod",distmethod,"clustermethod",clustmethod,sep="_")
+  #              #,lmat=rbind(c(0,3,0),c(0,1,2),c(0,4,0)) ,lhei=c(3,10,3),lwid=c(0,9,1)
+  # )
+  library(pheatmap)
+  library(dendsort)
+  # Modify ordering of the clusters using clustering callback option
+  callback = function(hc, mat){
+    sv = svd(t(mat))$v[,1]
+    dend = reorder(as.dendrogram(hc), wts = sv)
+    as.hclust(dend)
+    plot(as.hclust(dend))
+  }
+  hm=pheatmap(mat=as.matrix(d1),col=colorRampPalette(c("blue", "white", "red"))(length(BREAKS)-1)
+              ,breaks = BREAKS
+              ,cluster_rows = TRUE
+              ,cluster_cols = TRUE
+              ,cutree_cols = 3
+              ,drows = myDist(d1)
+              ,dcols = myDist(t(d1))
+              ,clustering_method = clustmethod
+              ,legend = TRUE
+              ,main = paste("distmethod",distmethod,"clustermethod",clustmethod,sep="_")
+              ,callback=callback
+              )
+  
+  
   return(hm)
+  
+  
+  
+  
 }
 
 
@@ -169,7 +196,7 @@ for(onedistmethod in Dist_Methods){
 
 
 
-goboxplot=function(d2=data_plot,getGene0_=getGene0,one_dist_method,one_clust_method,k0=4){
+goboxplot=function(d2=data_plot,getGene0_=getGene0,one_dist_method,one_clust_method,k0=3){
   ###??????????????????
   library(factoextra)
     dist=get_dist(x=t(d2),method = one_dist_method)
@@ -216,7 +243,7 @@ for(shift in c(0:(k0-3))){
     for(one in unique(hcc$rank_group_index)){
       hcc[which(hcc$rank_group_index==one),"group_count"]=length(which(hcc$rank_group_index==one))
     }
-    
+
     fix(hcc)
    ##进行排序
     my_comparision_matrix=as.data.frame(t(combn(x=unique(hcc$rank_group_index),2)))
@@ -240,7 +267,7 @@ for(shift in c(0:(k0-3))){
   ##十分之一percent，用于绘图
     particle=max(diff(hcc$Value))/10
         fix(hcc)
-    q=qplot(data = hcc,x=rank_group_index,y=hcc$Value,geom = "boxplot",outlier.colour = "black",outlier.colour="black",
+    q=qplot(data = hcc,x=rank_low2high,y=hcc$Value,geom = "boxplot",outlier.colour = "black",outlier.colour="black",
                         ylab = paste("Log2(",getGene0_,")",sep = ""),main = paste("dist_method",one_dist_method,"hclust_method",one_clust_method,sep = "_"))
     q=q+ geom_jitter(aes(colour = rank_low2high))
     q=q+geom_text(data = hcc,aes(label=paste("n=",group_count,sep=""),y=min(hcc$Value)-particle))
@@ -272,12 +299,13 @@ for(onedistmethod in Dist_Methods){
 }
 }
 
+
 #######把图画在一起
 plot_together=function(){
   for(onedistmethod in Dist_Methods){
     for(oneclustmethod in Cluster_Method){
       #win.graph();
-      h=goHeatmap(d1=data_plot,distmethod = onedistmethod,clustmethod = oneclustmethod);
+      h<<-goHeatmap(d1=data_plot,distmethod = onedistmethod,clustmethod = oneclustmethod);
       h
       #win.graph();
       q1=goboxplot(d2=data_plot
