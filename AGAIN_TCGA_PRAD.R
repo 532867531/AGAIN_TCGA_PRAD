@@ -138,19 +138,31 @@ goHeatmap=function(d1=data_plot,distmethod="euclidean",clustmethod="average"){
     as.hclust(dend)
     plot(as.hclust(dend))
   }
-  hm=pheatmap(mat=as.matrix(d1),col=colorRampPalette(c("blue", "white", "red"))(length(BREAKS)-1)
-              ,breaks = BREAKS
-              ,cluster_rows = TRUE
-              ,cluster_cols = TRUE
-              ,cutree_cols = 3
-              ,drows = myDist(d1)
-              ,dcols = myDist(t(d1))
-              ,clustering_method = clustmethod
-              ,legend = TRUE
-              ,main = paste("distmethod",distmethod,"clustermethod",clustmethod,sep="_")
-              ,callback=callback
-              )
   
+  library(heatmaply)
+  
+  
+ hm=heatmaply(x=data_plot
+               ,main = paste("distmethod",distmethod,"clustermethod",clustmethod,sep="_")
+               ,row_dend_left = TRUE
+               ,plot_method = "plotly"#plotly
+              ,colors=colorRampPalette(c("blue", "white", "red"))(length(BREAKS)-1)
+              ,distfun = myDist
+              ,hclustfun = myClust
+              )
+  # hm=pheatmap(mat=as.matrix(d1),col=colorRampPalette(c("blue", "white", "red"))(length(BREAKS)-1)
+  #             ,breaks = BREAKS
+  #             ,cluster_rows = TRUE
+  #             ,cluster_cols = TRUE
+  #             ,cutree_cols = 3
+  #             ,drows = myDist(d1)
+  #             ,dcols = myDist(t(d1))
+  #             ,clustering_method = clustmethod
+  #             ,legend = TRUE
+  #             ,main = paste("distmethod",distmethod,"clustermethod",clustmethod,sep="_")
+  #             ,callback=callback
+  #             )
+  # 
   
   return(hm)
   
@@ -163,22 +175,22 @@ goHeatmap=function(d1=data_plot,distmethod="euclidean",clustmethod="average"){
 
 ##############开始循环餐数
 Cluster_Method<-c( 
-  "ward.D",
-  "ward.D2",
-  "single",
-  "complete",
-  "average" ,
-  "mcquitty",
-  "median",
-  "centroid"
+  "ward.D"#,
+  # "ward.D2",
+  # "single",
+  # "complete",
+  # "average" ,
+  # "mcquitty",
+  # "median",
+  # "centroid"
 )
 Dist_Methods<-  c("euclidean"
-                  , "maximum"
+                  # , "maximum"
                   , "manhattan" 
-                  ,"canberra", 
-                  "binary", 
-                  "minkowski",
-                  "pearson", "spearman","kendall"
+                  # ,"canberra", 
+                  # "binary", 
+                  # "minkowski",
+                  # "pearson", "spearman","kendall"
 )
 
 # for(a in dev.list()){
@@ -301,21 +313,20 @@ for(onedistmethod in Dist_Methods){
 
 #######把图画在一起
 plot_together=function(){
+  return_list=list()
   for(onedistmethod in Dist_Methods){
     for(oneclustmethod in Cluster_Method){
       #win.graph();
       h<<-goHeatmap(d1=data_plot,distmethod = onedistmethod,clustmethod = oneclustmethod);
-      h
-      #win.graph();
-      q1=goboxplot(d2=data_plot
+      return_list[[length(return_list)+1]]=h
+            q1=goboxplot(d2=data_plot
                   ,getGene0_ = getGene0
                   ,one_dist_method = onedistmethod
                   ,one_clust_method = oneclustmethod
       );
-      for(aq in q1){
-        plot(aq)
-      }
+      return_list[[length(return_list)+1]]=q1
     }
   }
+  return(return_list)
 }
 #plot_together()
