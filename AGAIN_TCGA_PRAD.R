@@ -274,7 +274,7 @@ goboxplot=function(d2=data_plot,getGene0_=getGene0,one_dist_method,one_clust_met
       comparisons = my_comparisons,paired = FALSE,#label = "pb.format",
                            #hide.ns = FALSE,symnum.args = list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1), symbols = c("****", "***", "**", "*", "ns")),
                            label.y = c(seq(max(hcc$Value),max(hcc$Value)+max(diff(hcc$Value))/10*10,particle))[c(1:3)]
-                          ,method = "t.test")
+                          ,method = "wilcox.test")
     q=q+stat_compare_means(label.y = c(seq(max(hcc$Value),max(hcc$Value)+max(diff(hcc$Value))/10*10,particle))[4],
                            )
     q=q+geom_hline(yintercept = mean(hcc$Value), linetype=2)
