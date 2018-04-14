@@ -97,12 +97,17 @@ data_plot=log2(data_plot+1)
 {"进行scale处理"}
 data_plot=data.frame(t(scale(t(data_plot),center =TRUE,scale = TRUE)))
 #win.graph();densityplot(unlist(data_plot));Sys.sleep(5);dev.off()
-
+########对data_plot进行最终的可视化ggpurb
+library(ggpubr)
+library(reshape)
+a=melt(t(data_plot))
+colnames(a)=c("Sample","Gene","Value")
+win.graph();ggpubr::ggdensity(data=a,x="Value",color = "Gene",add = "mean")
 ####开始进行热图的绘制
 ##计算break
 goHeatmap=function(d1=data_plot,distmethod="euclidean",clustmethod="average"){
-  PERCENTILE=0.01;lowQ=as.numeric(quantile(unlist(data_plot),PERCENTILE,na.rm = TRUE));highQ=as.numeric(quantile(unlist(data_plot),1-PERCENTILE,na.rm = TRUE))
-  BREAKS=c(min(data_plot)-0.01,seq(lowQ,highQ,0.005),max(data_plot)+0.01)
+  PERCENTILE=0.25;lowQ=as.numeric(quantile(unlist(data_plot),PERCENTILE,na.rm = TRUE));highQ=as.numeric(quantile(unlist(data_plot),1-PERCENTILE,na.rm = TRUE))
+  BREAKS=c(min(data_plot)-0.01,seq(lowQ,highQ,length.out = 2),max(data_plot)+0.01)
   library(factoextra)
    print("自定义聚类函数")
   myClust<-function(x,aclustmethod=clustmethod){
@@ -139,16 +144,19 @@ goHeatmap=function(d1=data_plot,distmethod="euclidean",clustmethod="average"){
     plot(as.hclust(dend))
   }
   
-  library(heatmaply)
+  library(heatmap3)
   
-  
- hm=heatmaply(x=data_plot
-               ,main = paste("distmethod",distmethod,"clustermethod",clustmethod,sep="_")
-               ,row_dend_left = TRUE
-               ,plot_method = "plotly"#plotly
-              ,colors=colorRampPalette(c("blue", "white", "red"))(length(BREAKS)-1)
+  col=colorRampPalette(c("blue", "white", "red"))(length(BREAKS))
+win.graph();hm=heatmap3(x=d1
+              ,main = paste("distmethod",distmethod,"clustermethod",clustmethod,sep="_")
+              # ,row_dend_left = TRUE
+              # ,plot_method = "plotly"#plotly
+              ,col=col
               ,distfun = myDist
-              ,hclustfun = myClust
+              ,method = clustmethod
+              #,hclustfun = myClust
+              ,balanceColor = F
+              ,Rowv = 
               )
   # hm=pheatmap(mat=as.matrix(d1),col=colorRampPalette(c("blue", "white", "red"))(length(BREAKS)-1)
   #             ,breaks = BREAKS
@@ -175,20 +183,20 @@ goHeatmap=function(d1=data_plot,distmethod="euclidean",clustmethod="average"){
 
 ##############开始循环餐数
 Cluster_Method<-c( 
-  "ward.D"#,
-  # "ward.D2",
+  "ward.D",
+  "ward.D2",
   # "single",
-  # "complete",
-  # "average" ,
-  # "mcquitty",
-  # "median",
-  # "centroid"
+   "complete"#,
+#   "average" ,
+   #"mcquitty",
+   #"median",
+   #"centroid"
 )
 Dist_Methods<-  c("euclidean"
-                  # , "maximum"
-                  , "manhattan" 
-                  # ,"canberra", 
-                  # "binary", 
+                  #, "maximum"
+                  #, "manhattan" 
+                  #,"canberra", 
+                  #"binary", 
                   # "minkowski",
                   # "pearson", "spearman","kendall"
 )
@@ -319,14 +327,29 @@ plot_together=function(){
       #win.graph();
       h<<-goHeatmap(d1=data_plot,distmethod = onedistmethod,clustmethod = oneclustmethod);
       return_list[[length(return_list)+1]]=h
-            q1=goboxplot(d2=data_plot
-                  ,getGene0_ = getGene0
-                  ,one_dist_method = onedistmethod
-                  ,one_clust_method = oneclustmethod
-      );
-      return_list[[length(return_list)+1]]=q1
+      #       q1=goboxplot(d2=data_plot
+      #             ,getGene0_ = getGene0
+      #             ,one_dist_method = onedistmethod
+      #             ,one_clust_method = oneclustmethod
+      # );
+      # return_list[[length(return_list)+1]]=q1
     }
   }
   return(return_list)
 }
-#plot_together()
+
+
+
+
+a=plot_together()
+
+
+
+
+
+
+
+
+
+
+
