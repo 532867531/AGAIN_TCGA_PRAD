@@ -76,7 +76,7 @@ shell.exec(paste(out_put_dir,sep=""))
 fix(rna_seq_data)
 #geneSignatures=c("ANPEP","CD38","CSF3","CXCR2","CD80","IDO","SLEB2","CD274","PTPRC","TLR3","CEACAM8","STAT1","CXCR4","LOC116196","CSF1R","ITGAM","ITGAX","CD14","TGFB1","CXCL12","LOC199828","ENTPD1","FUT4","STAT3","IL4R","STAT5A","TLR4","CSF2","CXCL8","S100A8","S100A9","TNF")
 geneSignatures0=c("ARG1","CCL2","CD40","IL4R","FCGR2A","CD68","CD33","CSF1R","ITGAM","HLA-DRB1","FOXP3","PDCDILG2","CD163","LY75","PTPRC","CCR2","CD200R1","IL10","FCER2")
-geneSignatures=c(getGene0,"ARG1","CCL2","CD40","IL4R","FCGR2A","CD68","LOC116196","CSF1R","ITGAM","HLA-DRB1","JM2","PDCD1LG2","CD163","LY75","PTPRC","LOC90262","CD200R1","IL10","FCER2")
+geneSignatures=c("ARG1","CCL2","CD40","IL4R","FCGR2A","CD68","LOC116196","CSF1R","ITGAM","HLA-DRB1","JM2","PDCD1LG2","CD163","LY75","PTPRC","LOC90262","CD200R1","IL10","FCER2")
 data2use=rna_seq_data[geneSignatures,];
 rownames(data2use)=geneSignatures;fix(data2use)
 ###完成了数据的提取，下面进行数据的预处理，分为两部分，复制出一部分进行data_plot
@@ -106,8 +106,8 @@ win.graph();ggpubr::ggdensity(data=a,x="Value",color = "Gene",add = "mean")
 ####开始进行热图的绘制
 ##计算break
 goHeatmap=function(d1=data_plot,distmethod="euclidean",clustmethod="average"){
-  PERCENTILE=0.25;lowQ=as.numeric(quantile(unlist(data_plot),PERCENTILE,na.rm = TRUE));highQ=as.numeric(quantile(unlist(data_plot),1-PERCENTILE,na.rm = TRUE))
-  BREAKS=c(min(data_plot)-0.01,seq(lowQ,highQ,length.out = 2),max(data_plot)+0.01)
+  PERCENTILE=0.01;lowQ=as.numeric(quantile(unlist(data_plot),PERCENTILE,na.rm = TRUE));highQ=as.numeric(quantile(unlist(data_plot),1-PERCENTILE,na.rm = TRUE))
+  BREAKS=c(min(data_plot)-0.01,seq(lowQ,highQ,0.05),max(data_plot)+0.01)
   library(factoextra)
    print("自定义聚类函数")
   myClust<-function(x,aclustmethod=clustmethod){
@@ -119,45 +119,49 @@ goHeatmap=function(d1=data_plot,distmethod="euclidean",clustmethod="average"){
   }
   
   ##主要的绘图函数
-  # library(gplots)
-  # hm=heatmap.2(x=as.matrix(d1),col=colorRampPalette(c("blue", "white", "red"))(length(BREAKS)-1), distfun=myDist,hclustfun=myClust,
-  #              scale="none",
-  #              trace="none",
-  #              dendrogram = "column",
-  #              Rowv = TRUE,
-  #              Colv = TRUE,
-  #              sepcolor = "white",
-  #              symkey = TRUE,
-  #              #breaks = c(min(d1)-0.05,seq(-3,3,0.005),max(d1)+0.05)
-  #              # breaks = c(min(d1)-0.5,seq(-3,3,0.005),max(d1)+0.5)
-  #              breaks = BREAKS,
-  #              main = paste("distmethod",distmethod,"clustermethod",clustmethod,sep="_")
-  #              #,lmat=rbind(c(0,3,0),c(0,1,2),c(0,4,0)) ,lhei=c(3,10,3),lwid=c(0,9,1)
-  # )
-  library(pheatmap)
-  library(dendsort)
-  # Modify ordering of the clusters using clustering callback option
-  callback = function(hc, mat){
-    sv = svd(t(mat))$v[,1]
-    dend = reorder(as.dendrogram(hc), wts = sv)
-    as.hclust(dend)
-    plot(as.hclust(dend))
+  library(gplots)
+  #win.graph()
+  #设置colsidebar的颜色
+  h0<<-heatmap.2_adj(x=as.matrix(d1),Rowv = TRUE, Colv =TRUE)
+  h0.1=as.hclust(h0$colDendrogram)
+  h0.2=data.frame(cutree(h0.1,k=10));colnames(h0.2)="groupindex";h0.2[,"colname"]=rownames(h0.2)
+  a=data.frame(colnames(data_plot));colnames(a)="colname";a$colname=as.character(a$colname)
+  a_left2right=data.frame(a[h0$colInd,]);colnames(a_left2right)="colname"
+  ##merge
+  a_left2right_merged=merge(h0.2,a_left2right,by.x = "colname",by.y = "colname")
+  a_left2right_merged[which(a_left2right_merged$groupindex==1),"color"]="green"
+  a_left2right_merged[which(a_left2right_merged$groupindex==2),"color"]="red"
+  a_left2right_merged[which(a_left2right_merged$groupindex==3),"color"]="blue"
+  lastcolors=colors()[which(regexpr(pattern = ".*red.*|.*green.*|.*blue.*",text=colors())==-1)]
+  for(onecutreeindex in unique(a_left2right_merged$groupindex)){
+    if(onecutreeindex>=4){
+    a_left2right_merged[which(a_left2right_merged$groupindex==onecutreeindex),"color"]=lastcolors[onecutreeindex-3]
+    }
   }
-  
-  library(heatmap3)
-  
-  col=colorRampPalette(c("blue", "white", "red"))(length(BREAKS))
-win.graph();hm=heatmap3(x=d1
-              ,main = paste("distmethod",distmethod,"clustermethod",clustmethod,sep="_")
-              # ,row_dend_left = TRUE
-              # ,plot_method = "plotly"#plotly
-              ,col=col
-              ,distfun = myDist
-              ,method = clustmethod
-              #,hclustfun = myClust
-              ,balanceColor = F
-              ,Rowv = 
-              )
+  colsidecolors=a_left2right_merged$color
+      h1=heatmap.2(x=as.matrix(d1),col=colorRampPalette(c("blue", "white", "red"))(length(BREAKS)-1), distfun=myDist,hclustfun=myClust,
+               scale="none",
+               trace="none",
+               dendrogram = "column",
+               Rowv = TRUE,
+               Colv =TRUE,
+               sepcolor = "white",
+               symkey = TRUE,
+               #breaks = c(min(d1)-0.05,seq(-3,3,0.005),max(d1)+0.05)
+               # breaks = c(min(d1)-0.5,seq(-3,3,0.005),max(d1)+0.5)
+               breaks = BREAKS,
+               labCol = NA,
+               key.title = NA,
+               main = paste("distmethod",distmethod,"clustermethod",clustmethod,sep="_")
+            #,lmat=rbind(c(0,3,0),c(1,1,2),c(4,4,0)) ,lhei=c(3,10,3),lwid=rbind(c(3,9,1),c(3,9,1),c(3,9,1))
+            ,lmat=rbind(c(0,0,3,0,0,0),c(0,0,4,4,4,0),c(0,0,1,1,1,0),c(0,0,2,2,2,0),c(0,5,5,5,0,0)) ,lhei=c(1.5,3,0.3,6,3),lwid=rbind(c(1,0.6,8,0.5,0.46,1))
+            #,lmat=rbind(c(0,3,0),c(0,4,0),c(0,1,0),c(0,2,0),c(0,5,0)) ,lhei=c(5,3,3,3,3),lwid=c(2,9,2)
+            ,na.rm = TRUE
+            ,ColSideColors = colsidecolors
+  )
+            
+      
+      
   # hm=pheatmap(mat=as.matrix(d1),col=colorRampPalette(c("blue", "white", "red"))(length(BREAKS)-1)
   #             ,breaks = BREAKS
   #             ,cluster_rows = TRUE
@@ -171,12 +175,7 @@ win.graph();hm=heatmap3(x=d1
   #             ,callback=callback
   #             )
   # 
-  
-  return(hm)
-  
-  
-  
-  
+  #hm
 }
 
 
@@ -186,18 +185,18 @@ Cluster_Method<-c(
   "ward.D",
   "ward.D2",
   # "single",
-   "complete"#,
-#   "average" ,
+   "complete",
+  "average" #,
    #"mcquitty",
    #"median",
    #"centroid"
 )
 Dist_Methods<-  c("euclidean"
                   #, "maximum"
-                  #, "manhattan" 
+                  , "manhattan" 
                   #,"canberra", 
                   #"binary", 
-                  # "minkowski",
+                  , "minkowski"
                   # "pearson", "spearman","kendall"
 )
 
@@ -205,18 +204,21 @@ Dist_Methods<-  c("euclidean"
 #   dev.off()
 # }
 
-if(FALSE){
+if(TRUE){
 for(onedistmethod in Dist_Methods){
   for(oneclustmethod in Cluster_Method){
-    win.graph();
-    goHeatmap(d1=data_plot,distmethod = onedistmethod,clustmethod = oneclustmethod)
+    windows(width = 60,height=40);
+    #tiff(filename = "a.tiff",width = 800,height = 600)
+    hv=goHeatmap(d1=data_plot,distmethod = onedistmethod,clustmethod = oneclustmethod)
+    #dev.off();
   }
 }}
 
 
 
 
-goboxplot=function(d2=data_plot,getGene0_=getGene0,one_dist_method,one_clust_method,k0=3){
+if(FALSE){
+  goboxplot=function(d2=data_plot,getGene0_=getGene0,one_dist_method,one_clust_method,k0=3){
   ###??????????????????
   library(factoextra)
     dist=get_dist(x=t(d2),method = one_dist_method)
@@ -250,7 +252,6 @@ goboxplot=function(d2=data_plot,getGene0_=getGene0,one_dist_method,one_clust_met
      ##合并重新分组后的
     hcc=merge(hcc,hcc2,by.x ="groupMean",by.y="groupMean")
     hcc$Value=log2(as.numeric(hcc$Value))
-    
     
    ###返回list循环输出
     return_list=list()
@@ -353,3 +354,4 @@ a=plot_together()
 
 
 
+}
