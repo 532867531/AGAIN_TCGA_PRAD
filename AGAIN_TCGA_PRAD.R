@@ -119,63 +119,93 @@ goHeatmap=function(d1=data_plot,distmethod="euclidean",clustmethod="average"){
   }
   
   ##主要的绘图函数
-  library(gplots)
-  #win.graph()
+  library(pheatmap)
   #设置colsidebar的颜色
-  h0<<-heatmap.2_adj(x=as.matrix(d1),Rowv = TRUE, Colv =TRUE)
-  h0.1=as.hclust(h0$colDendrogram)
-  h0.2=data.frame(cutree(h0.1,k=10));colnames(h0.2)="groupindex";h0.2[,"colname"]=rownames(h0.2)
-  a=data.frame(colnames(data_plot));colnames(a)="colname";a$colname=as.character(a$colname)
-  a_left2right=data.frame(a[h0$colInd,]);colnames(a_left2right)="colname"
-  ##merge
-  a_left2right_merged=merge(h0.2,a_left2right,by.x = "colname",by.y = "colname")
-  a_left2right_merged[which(a_left2right_merged$groupindex==1),"color"]="green"
-  a_left2right_merged[which(a_left2right_merged$groupindex==2),"color"]="red"
-  a_left2right_merged[which(a_left2right_merged$groupindex==3),"color"]="blue"
-  lastcolors=colors()[which(regexpr(pattern = ".*red.*|.*green.*|.*blue.*",text=colors())==-1)]
-  for(onecutreeindex in unique(a_left2right_merged$groupindex)){
-    if(onecutreeindex>=4){
-    a_left2right_merged[which(a_left2right_merged$groupindex==onecutreeindex),"color"]=lastcolors[onecutreeindex-3]
-    }
-  }
-  colsidecolors=a_left2right_merged$color
-      h1=heatmap.2(x=as.matrix(d1),col=colorRampPalette(c("blue", "white", "red"))(length(BREAKS)-1), distfun=myDist,hclustfun=myClust,
-               scale="none",
-               trace="none",
-               dendrogram = "column",
-               Rowv = TRUE,
-               Colv =TRUE,
-               sepcolor = "white",
-               symkey = TRUE,
-               #breaks = c(min(d1)-0.05,seq(-3,3,0.005),max(d1)+0.05)
-               # breaks = c(min(d1)-0.5,seq(-3,3,0.005),max(d1)+0.5)
-               breaks = BREAKS,
-               labCol = NA,
-               key.title = NA,
-               main = paste("distmethod",distmethod,"clustermethod",clustmethod,sep="_")
-            #,lmat=rbind(c(0,3,0),c(1,1,2),c(4,4,0)) ,lhei=c(3,10,3),lwid=rbind(c(3,9,1),c(3,9,1),c(3,9,1))
-            ,lmat=rbind(c(0,0,3,0,0,0),c(0,0,4,4,4,0),c(0,0,1,1,1,0),c(0,0,2,2,2,0),c(0,5,5,5,0,0)) ,lhei=c(1.5,3,0.3,6,3),lwid=rbind(c(1,0.6,8,0.5,0.46,1))
-            #,lmat=rbind(c(0,3,0),c(0,4,0),c(0,1,0),c(0,2,0),c(0,5,0)) ,lhei=c(5,3,3,3,3),lwid=c(2,9,2)
-            ,na.rm = TRUE
-            ,ColSideColors = colsidecolors
-  )
+  # h0<<-heatmap.2_adj(x=as.matrix(d1),Rowv = TRUE, Colv =TRUE)
+  # h0.1=as.hclust(h0$colDendrogram)
+  # h0.2=data.frame(cutree(h0.1,k=10));colnames(h0.2)="groupindex";h0.2[,"colname"]=rownames(h0.2)
+  # a=data.frame(colnames(data_plot));colnames(a)="colname";a$colname=as.character(a$colname)
+  # a_left2right=data.frame(a[h0$colInd,]);colnames(a_left2right)="colname"
+  # ##merge
+  # a_left2right_merged=merge(h0.2,a_left2right,by.x = "colname",by.y = "colname")
+  # a_left2right_merged[which(a_left2right_merged$groupindex==1),"color"]="green"
+  # a_left2right_merged[which(a_left2right_merged$groupindex==2),"color"]="red"
+  # a_left2right_merged[which(a_left2right_merged$groupindex==3),"color"]="blue"
+  # lastcolors=colors()[which(regexpr(pattern = ".*red.*|.*green.*|.*blue.*",text=colors())==-1)]
+  # for(onecutreeindex in unique(a_left2right_merged$groupindex)){
+  #   if(onecutreeindex>=4){
+  #   a_left2right_merged[which(a_left2right_merged$groupindex==onecutreeindex),"color"]=lastcolors[onecutreeindex-3]
+  #   }
+  # }
+  # colsidecolors=a_left2right_merged$color
+  #     h1=heatmap.2(x=as.matrix(d1),col=colorRampPalette(c("blue", "white", "red"))(length(BREAKS)-1), distfun=myDist,hclustfun=myClust,
+  #              scale="none",
+  #              trace="none",
+  #              dendrogram = "column",
+  #              Rowv = TRUE,
+  #              Colv =TRUE,
+  #              sepcolor = "white",
+  #              symkey = TRUE,
+  #              #breaks = c(min(d1)-0.05,seq(-3,3,0.005),max(d1)+0.05)
+  #              # breaks = c(min(d1)-0.5,seq(-3,3,0.005),max(d1)+0.5)
+  #              breaks = BREAKS,
+  #              labCol = NA,
+  #              key.title = NA,
+  #              main = paste("distmethod",distmethod,"clustermethod",clustmethod,sep="_")
+  #           #,lmat=rbind(c(0,3,0),c(1,1,2),c(4,4,0)) ,lhei=c(3,10,3),lwid=rbind(c(3,9,1),c(3,9,1),c(3,9,1))
+  #           ,lmat=rbind(c(0,0,3,0,0,0),c(0,0,4,4,4,0),c(0,0,1,1,1,0),c(0,0,2,2,2,0),c(0,5,5,5,0,0)) ,lhei=c(1.5,3,0.3,6,3),lwid=rbind(c(1,0.6,8,0.5,0.46,1))
+  #           #,lmat=rbind(c(0,3,0),c(0,4,0),c(0,1,0),c(0,2,0),c(0,5,0)) ,lhei=c(5,3,3,3,3),lwid=c(2,9,2)
+  #           ,na.rm = TRUE
+  #           ,ColSideColors = colsidecolors
+  # )
             
       
       
-  # hm=pheatmap(mat=as.matrix(d1),col=colorRampPalette(c("blue", "white", "red"))(length(BREAKS)-1)
-  #             ,breaks = BREAKS
-  #             ,cluster_rows = TRUE
-  #             ,cluster_cols = TRUE
-  #             ,cutree_cols = 3
-  #             ,drows = myDist(d1)
-  #             ,dcols = myDist(t(d1))
-  #             ,clustering_method = clustmethod
-  #             ,legend = TRUE
-  #             ,main = paste("distmethod",distmethod,"clustermethod",clustmethod,sep="_")
-  #             ,callback=callback
-  #             )
-  # 
-  #hm
+  hm=pheatmap(mat=as.matrix((d1)),col=colorRampPalette(c("blue", "white", "red"))(length(BREAKS)-1)
+              #,kmeans_k = 3
+              ,breaks = BREAKS
+              ,cluster_rows = TRUE
+              ,cluster_cols = TRUE
+               #,cutree_rows = 3
+               ,cutree_cols = 3
+              ,drows = myDist(d1)
+              ,dcols = myDist(t(d1))
+              ,clustering_method = clustmethod
+              ,main = paste("distmethod",distmethod,"clustermethod",clustmethod,sep="_")
+              ,silent = TRUE
+              ##添加注释
+)
+  ##按照hv$tree_col$labels为顺序
+  ##添加分组信息
+  hccut=as.data.frame(cutree(hm$tree_col,k=3));
+  hccut=as.data.frame(hccut[hm$tree_col$labels,]);colnames(hccut)="groupindex";rownames(hccut)=hm$tree_col$labels
+  ##添加getgene表达值信息
+  hccut[,paste(getGene0,"value",sep="_")]=scale((unlist(rna_seq_data[getGene0,rownames(hccut)])))
+  
+  
+  lastcolors=colors()[which(regexpr(pattern = ".*red.*|.*green.*|.*blue.*",text=colors())==-1)]
+  for(onecutreeindex in unique(hccut$groupindex)){
+    if(onecutreeindex>=4){
+      hccut[which(hccut$groupindex==onecutreeindex),"color"]=lastcolors[onecutreeindex-3]
+    }
+  }
+  colsidecolors=hccut$color
+  hm1=pheatmap(mat=as.matrix((d1)),col=colorRampPalette(c("blue", "white", "red"))(length(BREAKS)-1)
+              #,kmeans_k = 3
+              ,breaks = BREAKS
+              ,cluster_rows = TRUE
+              ,cluster_cols = TRUE
+              #,cutree_rows = 3
+              ,cutree_cols = 3
+              ,drows = myDist(d1)
+              ,dcols = myDist(t(d1))
+              ,clustering_method = clustmethod
+              ,main = paste("distmethod",distmethod,"clustermethod",clustmethod,sep="_")
+              ,silent = FALSE
+              ##添加注释
+              ,annotation_col = hccut
+  )
+  hm1
 }
 
 
@@ -211,19 +241,24 @@ for(onedistmethod in Dist_Methods){
     #tiff(filename = "a.tiff",width = 800,height = 600)
     hv=goHeatmap(d1=data_plot,distmethod = onedistmethod,clustmethod = oneclustmethod)
     #dev.off();
+    windows(width = 60,height=40);
+    hv1=goboxplot(hv_ = hv,getGene0_ = getGene0,d2=data_plot
+                  ,one_dist_method = onedistmethod
+                  ,one_clust_method = oneclustmethod
+                  )
+    windows(width = 60,height=40);
+    plot(hv1[[1]])
   }
 }}
 
 
 
-
-if(FALSE){
-  goboxplot=function(d2=data_plot,getGene0_=getGene0,one_dist_method,one_clust_method,k0=3){
+if(TRUE){
+  goboxplot=function(hv_,k0=3,getGene0_=getGene0_,d2=data_plot,one_dist_method,one_clust_method){
   ###??????????????????
   library(factoextra)
-    dist=get_dist(x=t(d2),method = one_dist_method)
-    hc=hclust(d=dist,method = one_clust_method)
-    hcc=data.frame(cutree(tree = hc,k=k0));colnames(hcc)="treeIndex"
+    
+    hcc=data.frame(cutree(tree = hv_$tree_col,k=k0));colnames(hcc)="treeIndex"
     hcc[,"Sample"]=rownames(hcc)
     data_getGene0=data.frame(t(rna_seq_data[getGene0_,])[c(-1,-2),]);colnames(data_getGene0)="Value";data_getGene0[,"Sample"]=rownames(data_getGene0)
     hcc=merge(hcc,data_getGene0,by.x = "Sample",by.y ="Sample",all = TRUE )
@@ -246,7 +281,7 @@ if(FALSE){
     
     rankindex=data.frame(unique(hcc$groupMean));colnames(rankindex)="groupMean";rownames(rankindex)=rankindex$groupMean;
     hcc2=hclust(get_dist(rankindex,method = "euclidean"),method = "average");#win.graph();
-    plot(hcc2)
+    #plot(hcc2)
     hcc2=data.frame(cutree(hcc2,k=3));colnames(hcc2)="rank_group_index";hcc2[,"groupMean"]=rownames(hcc2)
     hcc2$rank_group_index=paste("rank_group_index",hcc2$rank_group_index,sep = "_")
      ##合并重新分组后的
@@ -306,52 +341,16 @@ if(FALSE){
 }
 
 
-if(FALSE){
-for(onedistmethod in Dist_Methods){
-  for(oneclustmethod in Cluster_Method){
-    #win.graph();
-    q=goboxplot(d2=data_plot
-              ,getGene0_ = getGene0
-              ,one_dist_method = onedistmethod
-              ,one_clust_method = oneclustmethod
-              );plot(q)
-  }
-}
-}
-
-
-#######把图画在一起
-plot_together=function(){
-  return_list=list()
-  for(onedistmethod in Dist_Methods){
-    for(oneclustmethod in Cluster_Method){
-      #win.graph();
-      h<<-goHeatmap(d1=data_plot,distmethod = onedistmethod,clustmethod = oneclustmethod);
-      return_list[[length(return_list)+1]]=h
-      #       q1=goboxplot(d2=data_plot
-      #             ,getGene0_ = getGene0
-      #             ,one_dist_method = onedistmethod
-      #             ,one_clust_method = oneclustmethod
-      # );
-      # return_list[[length(return_list)+1]]=q1
-    }
-  }
-  return(return_list)
-}
-
-
-
-
-a=plot_together()
-
-
-
-
-
-
-
-
-
-
-
+      if(FALSE){
+      for(onedistmethod in Dist_Methods){
+        for(oneclustmethod in Cluster_Method){
+          #win.graph();
+          q=goboxplot(d2=data_plot
+                    ,getGene0_ = getGene0
+                    ,one_dist_method = onedistmethod
+                    ,one_clust_method = oneclustmethod
+                    );plot(q)
+        }
+      }
+      }
 }
