@@ -209,6 +209,111 @@ goHeatmap=function(d1=data_plot,distmethod="euclidean",clustmethod="average"){
 }
 
 
+if(TRUE){
+  goboxplot=function(hv_,k0=3,getGene0_=getGene0_,d2=data_plot,one_dist_method,one_clust_method){
+    ###??????????????????
+    library(factoextra)
+    
+    hcc=data.frame(cutree(tree = hv_$tree_col,k=k0));colnames(hcc)="treeIndex"
+    hcc[,"Sample"]=rownames(hcc)
+    data_getGene0=data.frame(t(rna_seq_data[getGene0_,])[c(-1,-2),]);colnames(data_getGene0)="Value";data_getGene0[,"Sample"]=rownames(data_getGene0)
+    hcc=merge(hcc,data_getGene0,by.x = "Sample",by.y ="Sample",all = TRUE )
+    for(one in unique(hcc$treeIndex)){
+      ##从热图获取区块数据
+      get_block_average=d2[,hcc[which(hcc$treeIndex==one),"Sample"]]
+      meanV=mean(as.numeric(as.character(unlist(get_block_average))))
+      print(meanV)
+      hcc[which(hcc$treeIndex==one),"groupMean"]=meanV
+    }
+    hcc=hcc[order(hcc$groupMean),]
+    ranks=1
+    
+    
+    for(onemean in sort(unique(hcc$groupMean))){
+      hcc[which(hcc$groupMean==onemean),"rank_low2high"]=paste("low2high",ranks,sep="_")
+      ranks=ranks+1
+    };cat(sort(unique(hcc$groupMean)),"\n")
+    
+    
+    rankindex=data.frame(unique(hcc$groupMean));colnames(rankindex)="groupMean";rownames(rankindex)=rankindex$groupMean;
+    hcc2=hclust(get_dist(rankindex,method = "euclidean"),method = "average");#win.graph();
+    #plot(hcc2)
+    hcc2=data.frame(cutree(hcc2,k=3));colnames(hcc2)="rank_group_index";hcc2[,"groupMean"]=rownames(hcc2)
+    hcc2$rank_group_index=paste("rank_group_index",hcc2$rank_group_index,sep = "_")
+    ##合并重新分组后的
+    hcc=merge(hcc,hcc2,by.x ="groupMean",by.y="groupMean")
+    hcc$Value=log2(as.numeric(hcc$Value))
+    
+    ###返回list循环输出
+    return_list=list()
+    #连续型组合,aggregate ("rank_low2high")  使用复制和更改的模式
+    #  hcc[,"rank_group_index"]=hcc$rank_low2high
+    #  combination_index=c(1:(k0-2))+shift   ##shiftMax=k0-3
+    # hcc[which(hcc$rank_group_index %in% paste("low2high_",combination_index,sep = "")),"rank_group_index"]=paste("low2high_",combination_index[3],sep="")
+    
+    for(one in unique(hcc$rank_group_index)){
+      hcc[which(hcc$rank_group_index==one),"group_count"]=length(which(hcc$rank_group_index==one))
+    }
+    
+    #fix(hcc)
+    ##进行排序
+    my_comparision_matrix=as.data.frame(t(combn(x=unique(hcc$rank_group_index),2)))
+    colnames(my_comparision_matrix)=c("first","second")
+    for(onerow in c(1:nrow(my_comparision_matrix))){
+      my_comparision_matrix[onerow,"differ"]=as.numeric(stringi::stri_sub(str=my_comparision_matrix[onerow,"second"],from = stringi::stri_length(my_comparision_matrix[onerow,"second"])))-
+        as.numeric(stringi::stri_sub(str=my_comparision_matrix[onerow,"first"],from = stringi::stri_length(my_comparision_matrix[onerow,"second"])))
+    }
+    ##按照差值进行排序
+    my_comparision_matrix=my_comparision_matrix[order(my_comparision_matrix$first),]
+    my_comparision_matrix=my_comparision_matrix[order(my_comparision_matrix$differ),]
+    my_comparisons <- list()
+    for(one in c(1:nrow(my_comparision_matrix))){
+      oneterm=as.vector(c(as.character(my_comparision_matrix[one,"first"]),as.character(my_comparision_matrix[one,"second"])))
+      my_comparisons[[one]]=oneterm
+    }
+    
+    
+    ###绘制图形qlot
+    library(ggpubr);
+    ##十分之一percent，用于绘图
+    particle=max(diff(hcc$Value))/10
+    #  fix(hcc)
+    q=qplot(data = hcc,x=rank_group_index,y=hcc$Value,geom = "boxplot",outlier.colour = "black",outlier.colour="black",
+            ylab = paste("Log2(",getGene0_,")",sep = ""),main = paste("dist_method",one_dist_method,"hclust_method",one_clust_method,sep = "_"))
+    q=q+ geom_jitter(aes(colour = rank_low2high))
+    q=q+geom_text(data = hcc,aes(label=paste("n=",group_count,sep=""),y=min(hcc$Value)-particle))
+    q=q+stat_compare_means(aes(label=paste0(..method..,"\n", "p=",..p.format..)),
+                           comparisons = my_comparisons,paired = FALSE,#label = "pb.format",
+                           #hide.ns = FALSE,symnum.args = list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1), symbols = c("****", "***", "**", "*", "ns")),
+                           label.y = c(seq(max(hcc$Value),max(hcc$Value)+max(diff(hcc$Value))/10*10,particle))[c(1:3)]
+                           ,method = "wilcox.test")
+    q=q+stat_compare_means(label.y = c(seq(max(hcc$Value),max(hcc$Value)+max(diff(hcc$Value))/10*10,particle))[4],
+    )
+    q=q+geom_hline(yintercept = mean(hcc$Value), linetype=2)
+    q=q+stat_compare_means(label = "p.signif", method = "t.test", ref.group = ".all.",label.y =min(hcc$Value)-particle/2)# Pairwise comparison against all
+    return_list[[length(return_list)+1]]=q
+    
+    return(return_list)
+  }
+  
+  
+  if(FALSE){
+    for(onedistmethod in Dist_Methods){
+      for(oneclustmethod in Cluster_Method){
+        #win.graph();
+        q=goboxplot(d2=data_plot
+                    ,getGene0_ = getGene0
+                    ,one_dist_method = onedistmethod
+                    ,one_clust_method = oneclustmethod
+        );plot(q)
+      }
+    }
+  }
+}
+
+
+
+
 
 ##############开始循环餐数
 Cluster_Method<-c( 
@@ -253,104 +358,3 @@ for(onedistmethod in Dist_Methods){
 
 
 
-if(TRUE){
-  goboxplot=function(hv_,k0=3,getGene0_=getGene0_,d2=data_plot,one_dist_method,one_clust_method){
-  ###??????????????????
-  library(factoextra)
-    
-    hcc=data.frame(cutree(tree = hv_$tree_col,k=k0));colnames(hcc)="treeIndex"
-    hcc[,"Sample"]=rownames(hcc)
-    data_getGene0=data.frame(t(rna_seq_data[getGene0_,])[c(-1,-2),]);colnames(data_getGene0)="Value";data_getGene0[,"Sample"]=rownames(data_getGene0)
-    hcc=merge(hcc,data_getGene0,by.x = "Sample",by.y ="Sample",all = TRUE )
-    for(one in unique(hcc$treeIndex)){
-      ##从热图获取区块数据
-      get_block_average=d2[,hcc[which(hcc$treeIndex==one),"Sample"]]
-      meanV=mean(as.numeric(as.character(unlist(get_block_average))))
-      print(meanV)
-      hcc[which(hcc$treeIndex==one),"groupMean"]=meanV
-    }
-    hcc=hcc[order(hcc$groupMean),]
-    ranks=1
-    
-
-   for(onemean in sort(unique(hcc$groupMean))){
-      hcc[which(hcc$groupMean==onemean),"rank_low2high"]=paste("low2high",ranks,sep="_")
-      ranks=ranks+1
-    };cat(sort(unique(hcc$groupMean)),"\n")
-    
-    
-    rankindex=data.frame(unique(hcc$groupMean));colnames(rankindex)="groupMean";rownames(rankindex)=rankindex$groupMean;
-    hcc2=hclust(get_dist(rankindex,method = "euclidean"),method = "average");#win.graph();
-    #plot(hcc2)
-    hcc2=data.frame(cutree(hcc2,k=3));colnames(hcc2)="rank_group_index";hcc2[,"groupMean"]=rownames(hcc2)
-    hcc2$rank_group_index=paste("rank_group_index",hcc2$rank_group_index,sep = "_")
-     ##合并重新分组后的
-    hcc=merge(hcc,hcc2,by.x ="groupMean",by.y="groupMean")
-    hcc$Value=log2(as.numeric(hcc$Value))
-    
-   ###返回list循环输出
-    return_list=list()
-  #连续型组合,aggregate ("rank_low2high")  使用复制和更改的模式
-   #  hcc[,"rank_group_index"]=hcc$rank_low2high
-   #  combination_index=c(1:(k0-2))+shift   ##shiftMax=k0-3
-   # hcc[which(hcc$rank_group_index %in% paste("low2high_",combination_index,sep = "")),"rank_group_index"]=paste("low2high_",combination_index[3],sep="")
-        
-    for(one in unique(hcc$rank_group_index)){
-      hcc[which(hcc$rank_group_index==one),"group_count"]=length(which(hcc$rank_group_index==one))
-    }
-
-    #fix(hcc)
-   ##进行排序
-    my_comparision_matrix=as.data.frame(t(combn(x=unique(hcc$rank_group_index),2)))
-    colnames(my_comparision_matrix)=c("first","second")
-    for(onerow in c(1:nrow(my_comparision_matrix))){
-      my_comparision_matrix[onerow,"differ"]=as.numeric(stringi::stri_sub(str=my_comparision_matrix[onerow,"second"],from = stringi::stri_length(my_comparision_matrix[onerow,"second"])))-
-        as.numeric(stringi::stri_sub(str=my_comparision_matrix[onerow,"first"],from = stringi::stri_length(my_comparision_matrix[onerow,"second"])))
-    }
-    ##按照差值进行排序
-    my_comparision_matrix=my_comparision_matrix[order(my_comparision_matrix$first),]
-    my_comparision_matrix=my_comparision_matrix[order(my_comparision_matrix$differ),]
-    my_comparisons <- list()
-    for(one in c(1:nrow(my_comparision_matrix))){
-      oneterm=as.vector(c(as.character(my_comparision_matrix[one,"first"]),as.character(my_comparision_matrix[one,"second"])))
-      my_comparisons[[one]]=oneterm
-    }
-    
-    
-    ###绘制图形qlot
-  library(ggpubr);
-  ##十分之一percent，用于绘图
-    particle=max(diff(hcc$Value))/10
-      #  fix(hcc)
-    q=qplot(data = hcc,x=rank_group_index,y=hcc$Value,geom = "boxplot",outlier.colour = "black",outlier.colour="black",
-                        ylab = paste("Log2(",getGene0_,")",sep = ""),main = paste("dist_method",one_dist_method,"hclust_method",one_clust_method,sep = "_"))
-    q=q+ geom_jitter(aes(colour = rank_low2high))
-    q=q+geom_text(data = hcc,aes(label=paste("n=",group_count,sep=""),y=min(hcc$Value)-particle))
-    q=q+stat_compare_means(aes(label=paste0(..method..,"\n", "p=",..p.format..)),
-      comparisons = my_comparisons,paired = FALSE,#label = "pb.format",
-                           #hide.ns = FALSE,symnum.args = list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1), symbols = c("****", "***", "**", "*", "ns")),
-                           label.y = c(seq(max(hcc$Value),max(hcc$Value)+max(diff(hcc$Value))/10*10,particle))[c(1:3)]
-                          ,method = "wilcox.test")
-    q=q+stat_compare_means(label.y = c(seq(max(hcc$Value),max(hcc$Value)+max(diff(hcc$Value))/10*10,particle))[4],
-                           )
-    q=q+geom_hline(yintercept = mean(hcc$Value), linetype=2)
-    q=q+stat_compare_means(label = "p.signif", method = "t.test", ref.group = ".all.",label.y =min(hcc$Value)-particle/2)# Pairwise comparison against all
-    return_list[[length(return_list)+1]]=q
-
-    return(return_list)
-}
-
-
-      if(FALSE){
-      for(onedistmethod in Dist_Methods){
-        for(oneclustmethod in Cluster_Method){
-          #win.graph();
-          q=goboxplot(d2=data_plot
-                    ,getGene0_ = getGene0
-                    ,one_dist_method = onedistmethod
-                    ,one_clust_method = oneclustmethod
-                    );plot(q)
-        }
-      }
-      }
-}
