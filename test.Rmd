@@ -11,22 +11,17 @@ source("F:\\min-labs_paper\\work\\AGAIN_TCGA_PRAD\\AGAIN_TCGA_PRAD.R")
 
 
 ```{r pressure, plotly=TRUE,warning=FALSE,error=FALSE,eval=TRUE}
-to_plot=plot_together()
-ll<-htmltools::tagList()
-for(one in c(1:4)){
-  if("plotly" %in% class(to_plot[[one]])){
-    #证明是plot
-    ll[[one]]<-ggplotly(to_plot[[one]])
-  }else{
-    #证明是未剥离完的list
-    ll[[one]]<-ggplotly(to_plot[[one]][[1]])
-  }
-  print(one)
-}
-ll
-# to_plot[[1]]
-# to_plot[[2]]
-# to_plot[[3]]
-# to_plot[[4]]
-
+to_plot=plot_onece()
+ ll<-htmltools::tagList()
+ library(plotly)
+ for(one in c(1:length(to_plot))){
+   if("ggplot" %in% class(to_plot[[one]])){
+     #证明是plot
+     ll[[one]]<-ggplotly(to_plot[[one]])
+   }else{
+     #证明是未剥离完的list
+     ll[[one]]<-ggplotly(to_plot[[one]][[1]])
+   }
+   print(one)
+ }
 ```

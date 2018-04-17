@@ -103,6 +103,8 @@ library(reshape)
 a=melt(t(data_plot))
 colnames(a)=c("Sample","Gene","Value")
 win.graph();ggpubr::ggdensity(data=a,x="Value",color = "Gene",add = "mean")
+
+
 ####开始进行热图的绘制
 ##计算break
 goHeatmap=function(d1=data_plot,distmethod="euclidean",clustmethod="average"){
@@ -159,53 +161,22 @@ goHeatmap=function(d1=data_plot,distmethod="euclidean",clustmethod="average"){
   #           ,ColSideColors = colsidecolors
   # )
             
-      
-      
-  hm=pheatmap(mat=as.matrix((d1)),col=colorRampPalette(c("blue", "white", "red"))(length(BREAKS)-1)
-              #,kmeans_k = 3
-              ,breaks = BREAKS
-              ,cluster_rows = TRUE
-              ,cluster_cols = TRUE
-               #,cutree_rows = 3
-               ,cutree_cols = 3
-              ,drows = myDist(d1)
-              ,dcols = myDist(t(d1))
-              ,clustering_method = clustmethod
-              ,main = paste("distmethod",distmethod,"clustermethod",clustmethod,sep="_")
-              ,silent = TRUE
-              ##添加注释
-)
-  ##按照hv$tree_col$labels为顺序
-  ##添加分组信息
-  hccut=as.data.frame(cutree(hm$tree_col,k=3));
-  hccut=as.data.frame(hccut[hm$tree_col$labels,]);colnames(hccut)="groupindex";rownames(hccut)=hm$tree_col$labels
-  ##添加getgene表达值信息
-  hccut[,paste(getGene0,"value",sep="_")]=scale((unlist(rna_seq_data[getGene0,rownames(hccut)])))
-  
-  
-  lastcolors=colors()[which(regexpr(pattern = ".*red.*|.*green.*|.*blue.*",text=colors())==-1)]
-  for(onecutreeindex in unique(hccut$groupindex)){
-    if(onecutreeindex>=4){
-      hccut[which(hccut$groupindex==onecutreeindex),"color"]=lastcolors[onecutreeindex-3]
-    }
-  }
-  colsidecolors=hccut$color
-  hm1=pheatmap(mat=as.matrix((d1)),col=colorRampPalette(c("blue", "white", "red"))(length(BREAKS)-1)
-              #,kmeans_k = 3
+  hm1=pheatmap(mat=as.matrix(t(d1)),col=colorRampPalette(c("blue", "white", "red"))(length(BREAKS)-1)
+              ,kmeans_k = 3
               ,breaks = BREAKS
               ,cluster_rows = TRUE
               ,cluster_cols = TRUE
               #,cutree_rows = 3
               ,cutree_cols = 3
-              ,drows = myDist(d1)
-              ,dcols = myDist(t(d1))
+              ,drows = myDist(t(d1))
+              ,dcols = myDist((d1))
               ,clustering_method = clustmethod
               ,main = paste("distmethod",distmethod,"clustermethod",clustmethod,sep="_")
-              ,silent = FALSE
+              ,silent = TRUE
               ##添加注释
-              ,annotation_col = hccut
+              #,annotation_col = hccut
   )
-  hm1
+  return(hm1)
 }
 
 
@@ -214,7 +185,7 @@ if(TRUE){
     ###??????????????????
     library(factoextra)
     
-    hcc=data.frame(cutree(tree = hv_$tree_col,k=k0));colnames(hcc)="treeIndex"
+    hcc=data.frame(hv_$kmeans$cluster);colnames(hcc)="treeIndex"
     hcc[,"Sample"]=rownames(hcc)
     data_getGene0=data.frame(t(rna_seq_data[getGene0_,])[c(-1,-2),]);colnames(data_getGene0)="Value";data_getGene0[,"Sample"]=rownames(data_getGene0)
     hcc=merge(hcc,data_getGene0,by.x = "Sample",by.y ="Sample",all = TRUE )
@@ -287,8 +258,7 @@ if(TRUE){
                            #hide.ns = FALSE,symnum.args = list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1), symbols = c("****", "***", "**", "*", "ns")),
                            label.y = c(seq(max(hcc$Value),max(hcc$Value)+max(diff(hcc$Value))/10*10,particle))[c(1:3)]
                            ,method = "wilcox.test")
-    q=q+stat_compare_means(label.y = c(seq(max(hcc$Value),max(hcc$Value)+max(diff(hcc$Value))/10*10,particle))[4],
-    )
+    q=q+stat_compare_means(label.y = c(seq(max(hcc$Value),max(hcc$Value)+max(diff(hcc$Value))/10*10,particle))[4])
     q=q+geom_hline(yintercept = mean(hcc$Value), linetype=2)
     q=q+stat_compare_means(label = "p.signif", method = "t.test", ref.group = ".all.",label.y =min(hcc$Value)-particle/2)# Pairwise comparison against all
     return_list[[length(return_list)+1]]=q
@@ -338,23 +308,28 @@ Dist_Methods<-  c("euclidean"
 # for(a in dev.list()){
 #   dev.off()
 # }
-
-if(TRUE){
-for(onedistmethod in Dist_Methods){
-  for(oneclustmethod in Cluster_Method){
-    windows(width = 60,height=40);
-    #tiff(filename = "a.tiff",width = 800,height = 600)
-    hv=goHeatmap(d1=data_plot,distmethod = onedistmethod,clustmethod = oneclustmethod)
-    #dev.off();
-    windows(width = 60,height=40);
-    hv1=goboxplot(hv_ = hv,getGene0_ = getGene0,d2=data_plot
-                  ,one_dist_method = onedistmethod
-                  ,one_clust_method = oneclustmethod
-                  )
-    windows(width = 60,height=40);
-    plot(hv1[[1]])
-  }
-}}
-
+plot_onece=function(){
+  return_list=list()
+  if(TRUE){
+  for(onedistmethod in Dist_Methods){
+    for(oneclustmethod in Cluster_Method){
+      #windows(width = 60,height=40);
+      #tiff(filename = "a.tiff",width = 800,height = 600)
+      hv<<-goHeatmap(d1=data_plot,distmethod = onedistmethod,clustmethod = oneclustmethod)
+      #hv
+      return_list[[length(return_list)+1]]=as.list(hv)
+      #dev.off();
+      #windows(width = 60,height=40);
+      hv1=goboxplot(hv_ = hv,getGene0_ = getGene0,d2=data_plot
+                    ,one_dist_method = onedistmethod
+                    ,one_clust_method = oneclustmethod
+                    )
+      #windows(width = 60,height=40);
+#      plot(hv1[[1]])
+      return_list[[length(return_list)+1]]=hv1
+    }
+  }}
+  return(return_list)
+}  
 
 
