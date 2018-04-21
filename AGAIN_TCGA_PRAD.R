@@ -74,10 +74,16 @@ shell.exec(paste(out_put_dir,sep=""))
 
 ###开始进行聚类
 fix(rna_seq_data)
-geneSignatures=c("ANPEP","CD38","CSF3","CXCR2","CD80","IDO","SLEB2","CD274","PTPRC","TLR3","CEACAM8","STAT1","CXCR4","LOC116196","CSF1R","ITGAM","ITGAX","CD14","TGFB1","CXCL12","LOC199828","ENTPD1","FUT4","STAT3","IL4R","STAT5A","TLR4","CSF2","CXCL8","S100A8","S100A9","TNF")
+#geneSignatures=c("ANPEP","CD38","CSF3","CXCR2","CD80","IDO","SLEB2","CD274","PTPRC","TLR3","CEACAM8","STAT1","CXCR4","LOC116196","CSF1R","ITGAM","ITGAX","CD14","TGFB1","CXCL12","LOC199828","ENTPD1","FUT4","STAT3","IL4R","STAT5A","TLR4","CSF2","CXCL8","S100A8","S100A9","TNF")
 # geneSignatures0=c("ARG1","CCL2","CD40","IL4R","FCGR2A","CD68","CD33","CSF1R","ITGAM","HLA-DRB1","FOXP3","PDCDILG2","CD163","LY75","PTPRC","CCR2","CD200R1","IL10","FCER2")
-# geneSignatures=c("ARG1","CCL2","CD40","IL4R","FCGR2A","CD68","LOC116196","CSF1R","ITGAM","HLA-DRB1","JM2","PDCD1LG2","CD163","LY75","PTPRC","LOC90262","CD200R1","IL10","FCER2")
-data2use=rna_seq_data[geneSignatures,];
+geneSignatures=c("ARG1","CCL2","CD40","IL4R","FCGR2A","CD68","LOC116196","CSF1R","ITGAM","HLA-DRB1","JM2","PDCD1LG2","CD163","LY75","PTPRC","LOC90262","CD200R1","IL10","FCER2")
+useCbioportal=FALSE
+if(!useCbioportal){
+  data2use=rna_seq_data[geneSignatures,];
+}else{
+  bigFile="G:\\TcgaTargetGtex_RSEM_Hugo_norm_count"
+  message(paste("花费了",Sys.time()-begin_time_stamp,"s"))
+}
 rownames(data2use)=geneSignatures;fix(data2use)
 ###完成了数据的提取，下面进行数据的预处理，分为两部分，复制出一部分进行data_plot
 data_plot=data2use
@@ -100,7 +106,7 @@ data_plot=data.frame(t(scale(t(data_plot)+1)))
 
 ####开始进行热图的绘制
 ##计算break
-goHeatmap=function(d1=data_plot,distmethod="euclidean",clustmethod="average"){
+goHeatmap=function(d1=data_plot,distmethod="euclidean",clustmethod="complete"){
   PERCENTILE=0.01;lowQ=as.numeric(quantile(unlist(data_plot),PERCENTILE,na.rm = TRUE));highQ=as.numeric(quantile(unlist(data_plot),1-PERCENTILE,na.rm = TRUE))
   BREAKS=c(min(data_plot)-0.01,seq(lowQ,highQ,0.005),max(data_plot)+0.01)
   library(factoextra)
@@ -114,32 +120,37 @@ goHeatmap=function(d1=data_plot,distmethod="euclidean",clustmethod="average"){
   }
   #设置colsidebar的颜色
     win.graph();
-    h0<<-heatmap.2_adj(x=as.matrix(d1),Rowv = TRUE, Colv =TRUE)
+    h0=heatmap.2_adj(x=as.matrix(d1),Rowv = TRUE, Colv =TRUE, distfun=myDist,hclustfun=myClust)
     dev.off();
-    h0.1=as.hclust(h0$colDendrogram)
-    h0.2=data.frame(cutree(h0.1,k=3));colnames(h0.2)="groupindex";h0.2[,"colname"]=rownames(h0.2)
-    a=data.frame(colnames(data_plot));colnames(a)="colname";a$colname=as.character(a$colname)
-    a_left2right=data.frame(a[h0$colInd,]);colnames(a_left2right)="colname"
-    ##merge
-      a_left2right_merged=merge(h0.2,a_left2right,by.x = "colname",by.y = "colname")
-    a_left2right_merged[which(a_left2right_merged$groupindex==1),"color"]="green"
-    a_left2right_merged[which(a_left2right_merged$groupindex==2),"color"]="red"
-    a_left2right_merged[which(a_left2right_merged$groupindex==3),"color"]="blue"
-    lastcolors=colors()[which(regexpr(pattern = ".*red.*|.*green.*|.*blue.*",text=colors())==-1)]
-    for(onecutreeindex in unique(a_left2right_merged$groupindex)){
-        if(onecutreeindex>=4){
-          a_left2right_merged[which(a_left2right_merged$groupindex==onecutreeindex),"color"]=lastcolors[onecutreeindex-3]
-          }
+    ##主要的绘图函数
+  #    使用 dendextend 包增强热图
+  #   软件包 dendextend 可以用于增强其他软件包的功能
+    
+library(dendextend)# order for rows
+library(magrittr)
+    hcc=as.data.frame(cutree(h0$colDendrogram,k=5))
+    colnames(hcc)="group_index_cut"  ##此时样本的顺序已经一致
+    ##分配cut_group_mean(0.25-0.75mean),热图区域的平均值
+    for(onegroupindex in unique(hcc$group_index_cut)){
+      sub_samples=rownames(hcc)[which(hcc$group_index_cut==onegroupindex)]
+      sub_samples_data=data_plot[,sub_samples]##获取区块数据，使用作图时的数据计算平均值
+      sub_samples_data_list=unlist(sub_samples_data)
+      QS=quantile(sub_samples_data_list)##使用interquantile的数据的平均值
+      sub_samples_data_interquantile_mean=mean(sub_samples_data_list[intersect(which(sub_samples_data_list>QS[2]),which(sub_samples_data_list<QS[4]))])##0.25~0.75作为平均值
+      block_weight=sub_samples_data_interquantile_mean*10000##放大一万倍作为权重
+      hcc[sub_samples,"block_weight"]=block_weight
     }
-    colsidecolors=a_left2right_merged$color
-  ##主要的绘图函数
+   go_wts=hcc$block_weight
+    
   library(gplots);
   hm=heatmap.2(x=as.matrix(d1),col=colorRampPalette(c("blue", "white", "red"))(length(BREAKS)-1), distfun=myDist,hclustfun=myClust,
                scale="none",
                trace="none",
                dendrogram = "column",
-               Rowv = FALSE,
-               Colv = TRUE,
+               Rowv = FALSE ,
+               ##########################################################这里一定要设置为mean不要设置为默认的sum
+              Colv =rev(reorder(as.dendrogram(h0$colDendrogram),wts = go_wts,agglo.FUN = mean)%>%branches_color(k=5)),
+             #Colv = TRUE,
                sepcolor = "white",
                symkey = TRUE,
                #breaks = c(min(d1)-0.05,seq(-3,3,0.005),max(d1)+0.05)
@@ -158,14 +169,14 @@ goHeatmap=function(d1=data_plot,distmethod="euclidean",clustmethod="average"){
 
 ##############开始循环餐数
 Cluster_Method<-c( 
-  "ward.D",
-  "ward.D2",
-  #"single",
+   "ward.D",
+   "ward.D2",
+   "single",
   "complete",
-  "average"# ,
-  #"mcquitty",
-  #"median",
-  #"centroid"
+   "average",
+   "mcquitty",
+   "median",
+   "centroid"
 )
 Dist_Methods<-  c("euclidean"
                   #, "maximum", "manhattan", 
@@ -181,6 +192,8 @@ for(a in dev.list()){
   }
 }
 
+
+
 if(FALSE){
   for(onedistmethod in Dist_Methods){
     for(oneclustmethod in Cluster_Method){
@@ -193,12 +206,12 @@ if(FALSE){
 
 
 
-goboxplot=function(d2=data_plot,getGene0_=getGene0,one_dist_method,one_clust_method){
+goboxplot=function(d2=data_plot,heatmap_result,getGene0_=getGene0,one_dist_method,one_clust_method){
   ###??????????????????
   library(factoextra)
-  dist=get_dist(x=t(d2),method = one_dist_method)
-  hc=hclust(d=dist,method = one_clust_method)
-  hcc=data.frame(cutree(tree = hc,k=7));colnames(hcc)="treeIndex"
+  #dist=get_dist(x=t(d2),method = one_dist_method)
+  #hc=hclust(d=dist,method = one_clust_method)
+  hcc=data.frame(cutree(tree = heatmap_result$colDendrogram,k=3));colnames(hcc)="treeIndex"
   hcc[,"Sample"]=rownames(hcc)
   data_getGene0=data.frame(t(rna_seq_data[getGene0_,])[c(-1,-2),]);colnames(data_getGene0)="Value";data_getGene0[,"Sample"]=rownames(data_getGene0)
   hcc=merge(hcc,data_getGene0,by.x = "Sample",by.y ="Sample",all = TRUE )
@@ -223,7 +236,7 @@ goboxplot=function(d2=data_plot,getGene0_=getGene0,one_dist_method,one_clust_met
   hcc2$rank_group_index=paste("rank_group_index",hcc2$rank_group_index,sep = "_")
   ##合并重新分组后的
   hcc=merge(hcc,hcc2,by.x ="groupMean",by.y="groupMean")
-  hcc$Value=as.numeric(hcc$Value)
+  hcc$Value=log2(as.numeric(hcc$Value))
   for(one in unique(hcc$rank_group_index)){
     hcc[which(hcc$rank_group_index==one),"group_count"]=length(which(hcc$rank_group_index==one))
   }
@@ -255,10 +268,10 @@ goboxplot=function(d2=data_plot,getGene0_=getGene0,one_dist_method,one_clust_met
   #win.graph();
   #fix(hcc)
   q=qplot(data = hcc,x=rank_group_index,y=hcc$Value,geom = "boxplot",outlier.colour = "black",outlier.colour="black",
-          ylab = getGene0_,main = paste("dist_method",one_dist_method,"hclust_method",one_clust_method,sep = "_"))
+          ylab = paste("Log2(",getGene0_,")",sep=""),main = paste("dist_method",one_dist_method,"hclust_method",one_clust_method,sep = "_"))
   q=q+ geom_jitter(aes(colour = rank_low2high))
   q=q+geom_text(data = hcc,aes(label=paste("n=",group_count,sep=""),y=min(hcc$Value)-particle))
-  q=q+stat_compare_means(aes(label=paste0(..method..,"\n", "p=",..p.format..)),
+  q=q+stat_compare_means(aes(label=paste0(..method..,"\n", "p=",..p.format..)),method = "t.test",
                          comparisons = my_comparisons,paired = FALSE,#label = "pb.format",
                          #hide.ns = FALSE,symnum.args = list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1), symbols = c("****", "***", "**", "*", "ns")),
                          label.y = c(seq(max(hcc$Value),max(hcc$Value)+max(diff(hcc$Value))/10*10,particle))[c(1:3)]
@@ -287,7 +300,7 @@ if(FALSE){
 plot_together_rmd=function(){
   for(onedistmethod in Dist_Methods){
     for(oneclustmethod in Cluster_Method){
-      h<<-goHeatmap(d1=data_plot,distmethod = onedistmethod,clustmethod = oneclustmethod);
+      h=goHeatmap(d1=data_plot,distmethod = onedistmethod,clustmethod = oneclustmethod);
       #h自动输出热图，不可控
       q1<-goboxplot(d2=data_plot
                   ,getGene0_ = getGene0
@@ -308,9 +321,10 @@ plot_together=function(){
   for(onedistmethod in Dist_Methods){
     for(oneclustmethod in Cluster_Method){
       #win.graph();
-      h<<-goHeatmap(d1=data_plot,distmethod = onedistmethod,clustmethod = oneclustmethod);
+      h=goHeatmap(d1=data_plot,distmethod = onedistmethod,clustmethod = oneclustmethod);
       #h自动输出热图，不可控
       q=goboxplot(d2=data_plot
+                  ,heatmap_result=h
                   ,getGene0_ = getGene0
                   ,one_dist_method = onedistmethod
                   ,one_clust_method = oneclustmethod
@@ -320,3 +334,4 @@ plot_together=function(){
     }
   }
 }
+

@@ -1,5 +1,41 @@
 print("加载自定义函数包")
 
+print("从大数据取得列名称的函数！返回dataframe")
+generate_Index_Column_Table<-function(file){
+  library(LaF)
+  headline=LaF::get_lines(filename = file,1)
+  headlines=stringr::str_split(headline,pattern = "\\t",simplify = TRUE)
+  return_data_frame=data.frame(matrix(nrow = 1,ncol = length(headlines)))
+  colnames(return_data_frame)=headlines
+  return(return_data_frame)
+}
+
+print("从大数据取得基因名称对应行的函数！返回dataframe")
+generate_Index_Gene_Table<-function(file){
+  if(!file.exists("g:/bigdata_gene_line_numbers.RDS")){
+  library(LaF)
+  return_data_frame=data.frame()
+  beginTime=Sys.time()
+  for(rowindex in c(2:58582)){
+    lines=LaF::get_lines(filename = file,line_numbers = rowindex)
+    lines=stringr::str_split(lines,pattern = "\\t",simplify = TRUE)    
+    onegenename=lines[1]
+    return_data_frame[rowindex-1,"GeneName"]=onegenename
+    return_data_frame[rowindex-1,"line_numbers"]=rowindex
+  }
+  message(paste("共花费",Sys.time()-beginTime))
+  saveRDS(object = return_data_frame,file ="g:/bigdata_gene_line_numbers.RDS" )
+  return(return_data_frame)
+  }else{
+    return(readRDS("g:/bigdata_gene_line_numbers.RDS"))
+  }
+}
+
+
+
+
+
+
 print("自定义聚类函数")
 myclust<-function(x,clustmethod){
   hclust(x,method=clustmethod)

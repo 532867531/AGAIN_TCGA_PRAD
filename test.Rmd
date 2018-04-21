@@ -11,7 +11,7 @@ dev.list()
 ```
 
 
-```{r pressure, eval=TRUE, echo=TRUE, error=FALSE, fig.height=10, fig.width=12, warning=FALSE, plotly=TRUE}
+```{r pressure, eval=TRUE, echo=TRUE, error=FALSE, fig.height=12, fig.width=16, warning=FALSE, plotly=TRUE}
 plot_together()
 
 ```
