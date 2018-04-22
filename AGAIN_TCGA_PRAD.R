@@ -96,14 +96,35 @@ if("Hugo_Symbol" %in% colnames(data_plot)){
 };fix(data_plot)
 ##进行数据的处理，例如log2,normalize
 library(lattice)
+library(ggpubr)
+library(reshape)
 #win.graph();densityplot(unlist(data_plot));Sys.sleep(5);dev.off()
-{"进行log2处理！"}
-data_plot=log2(data_plot+1)
-win.graph();densityplot(unlist(data_plot));Sys.sleep(5);dev.off()
-{"进行scale处理"}
-data_plot=data.frame(t(scale(t(data_plot)+1)))
+if(TRUE){
+      {"进行log2处理！"}
+      data_plot=log2(data_plot+1)
+      ########对data_plot进行最终的可视化ggpurb
+      a=melt(t(data_plot))
+      colnames(a)=c("Sample","Gene","Value")
+      win.graph();ggpubr::ggdensity(data=a,x="Value",color = "Gene",add = "mean")
+}
+if(FALSE){
+      {"进行-rowmedian处理"}
+      library(matrixStats)
+      data_plot=data_plot-rowMedians(data.matrix(data_plot))
+      ########对data_plot进行最终的可视化ggpurb
+      a=melt(t(data_plot))
+      colnames(a)=c("Sample","Gene","Value")
+      win.graph();ggpubr::ggdensity(data=a,x="Value",color = "Gene",add = "mean")
+}
+if(TRUE){
+      {"进行scale处理"}
+      data_plot=data.frame(t(scale(t(data_plot)+1)))
+      ########对data_plot进行最终的可视化ggpurb
+      a=melt(t(data_plot))
+      colnames(a)=c("Sample","Gene","Value")
+      win.graph();ggpubr::ggdensity(data=a,x="Value",color = "Gene",add = "mean")
+}
 #win.graph();densityplot(unlist(data_plot));Sys.sleep(5);dev.off()
-
 ####开始进行热图的绘制
 ##计算break
 goHeatmap=function(d1=data_plot,distmethod="euclidean",clustmethod="complete"){
@@ -125,11 +146,22 @@ goHeatmap=function(d1=data_plot,distmethod="euclidean",clustmethod="complete"){
     ##主要的绘图函数
   #    使用 dendextend 包增强热图
   #   软件包 dendextend 可以用于增强其他软件包的功能
-    
-library(dendextend)# order for rows
+################
+    library(dendextend)# order for rows
 library(magrittr)
-    hcc=as.data.frame(cutree(h0$colDendrogram,k=5))
-    colnames(hcc)="group_index_cut"  ##此时样本的顺序已经一致
+    hcc<<-as.data.frame(cutree(h0$colDendrogram,k=5))
+    colnames(hcc) <- "group_index_cut"  ##此时样本的顺序已经一致
+    hcc[,"ori_rowindex"]<-c(1:ncol(data_plot))
+    hcc[,"Sample"]=rownames(hcc)
+    ##添加getgene0的表达值
+    Value_getgene0_s=as.data.frame(t(rna_seq_data[getGene0,][,-c(1,2)]))
+    Value_getgene0_s[,"Sample"]=rownames(Value_getgene0_s)
+    hcc=merge(hcc,Value_getgene0_s,by.x = "Sample",by.y = "Sample",sort = FALSE)
+    rownames(hcc)=hcc$Sample
+    ##不断恢复顺序
+    hcc=hcc[colnames(data_plot)[h0$colInd],]##变换为热图上的顺序
+    
+    
     ##分配cut_group_mean(0.25-0.75mean),热图区域的平均值
     for(onegroupindex in unique(hcc$group_index_cut)){
       sub_samples=rownames(hcc)[which(hcc$group_index_cut==onegroupindex)]
@@ -138,18 +170,22 @@ library(magrittr)
       QS=quantile(sub_samples_data_list)##使用interquantile的数据的平均值
       sub_samples_data_interquantile_mean=mean(sub_samples_data_list[intersect(which(sub_samples_data_list>QS[2]),which(sub_samples_data_list<QS[4]))])##0.25~0.75作为平均值
       block_weight=sub_samples_data_interquantile_mean*10000##放大一万倍作为权重
+      hcc[sub_samples,"interquantile_mean"]=sub_samples_data_interquantile_mean
       hcc[sub_samples,"block_weight"]=block_weight
     }
-   go_wts=hcc$block_weight
+    ##hcc分流分配到作图
+    hcc=hcc[colnames(data_plot),]##变换为原始数据的顺序，为datadriver不要重排
+   go_wts=(hcc$block_weight)
     
   library(gplots);
-  hm=heatmap.2(x=as.matrix(d1),col=colorRampPalette(c("blue", "white", "red"))(length(BREAKS)-1), distfun=myDist,hclustfun=myClust,
+   tiff(filename = paste(paste("Heatmap","Distmethod",distmethod,"Clustermethod",clustmethod,sep="_"),".tiff",sep=""),width = 1000,height = 800)
+    hm<<-heatmap.2(x=as.matrix(d1),col=colorRampPalette(c("blue", "white", "red"))(length(BREAKS)-1), distfun=myDist,hclustfun=myClust,
                scale="none",
                trace="none",
                dendrogram = "column",
                Rowv = FALSE ,
                ##########################################################这里一定要设置为mean不要设置为默认的sum
-              Colv =rev(reorder(as.dendrogram(h0$colDendrogram),wts = go_wts,agglo.FUN = mean)%>%branches_color(k=5)),
+              Colv =rev(reorder(as.dendrogram(h0$colDendrogram),wts = go_wts,agglo.FUN = (function(x){mean(x)}))%>%branches_color(k=5)),
              #Colv = TRUE,
                sepcolor = "white",
                symkey = TRUE,
@@ -162,16 +198,376 @@ library(magrittr)
               #### ,margins = rep(4,2)
                #,ColSideColors = colsidecolors
   )
-  return(hm)
-}
 
+dev.off()   
+   ###
+   hcc=hcc[colnames(data_plot)[hm$colInd],]##变换为热图上的顺序
+   data_boxplot_return=data.frame(matrix(nrow = 0,ncol = 3));colnames(data_boxplot_return)=list("group_index_cut","Value","plot_prio")
+   prio=1;
+   for(onegroupindex in unique(hcc$group_index_cut)){
+      sample_onegroupindex=rownames(hcc)[which(hcc$group_index_cut==onegroupindex)]
+      data_sample_onegroupindex=data_plot[,sample_onegroupindex]
+      batchreturn_data_sample_onegroupindex=data.frame(group_index_cut=onegroupindex,Value=as.numeric(unlist(data_sample_onegroupindex)),plot_prio=paste(prio,onegroupindex,sep="_"))
+      data_boxplot_return=rbind(data_boxplot_return,batchreturn_data_sample_onegroupindex)
+      prio=prio+1
+   }
+   ##添加groupcount,不使用merge的方法
+   for(onegroupindex in  unique(data_boxplot_return$group_index_cut)){
+     data_boxplot_return[which(data_boxplot_return$group_index_cut==onegroupindex),"group_count"]=
+       length(which(data_boxplot_return$group_index_cut==onegroupindex))/nrow(data_plot)
+   }
+   ##添加颜色
+   cols=data.frame(cols=unique(dendextend::get_leaves_branches_col(hm$colDendrogram)),
+                   group_index_cut=unique(data_boxplot_return$group_index_cut))
+   data_boxplot_return=data_boxplot_return[order(data_boxplot_return$plot_prio),]
+   data_boxplot_return=merge(data_boxplot_return,cols,by.x = "group_index_cut", by.y = "group_index_cut")
+   
+        ##merge后的恢复plot顺序
+   data_boxplot_return=data_boxplot_return[order(data_boxplot_return$plot_prio),]
+  #反正heatmap.2的图形输出不受控制这样就直接返回boxplot吧
+              ###进行集合的比较
+               data_boxplot_return$group_index_cut=as.character(data_boxplot_return$group_index_cut)
+               my_comparision_matrix=as.data.frame(matrix(ncol=2,t(combn(x=unique(data_boxplot_return$plot_prio),2))))
+               colnames(my_comparision_matrix)=c("first","second")
+               for(onerow in c(1:nrow(my_comparision_matrix))){
+                 my_comparision_matrix[onerow,"differ"]=as.numeric(stringi::stri_sub(str=my_comparision_matrix[onerow,"second"],from = stringi::stri_length(my_comparision_matrix[onerow,"second"])))-
+                   as.numeric(stringi::stri_sub(str=my_comparision_matrix[onerow,"first"],from = stringi::stri_length(my_comparision_matrix[onerow,"second"])))
+               }
+               data_boxplot_return$plot_prio=as.factor(data_boxplot_return$plot_prio)
+               ##按照差值进行排序
+               my_comparision_matrix=my_comparision_matrix[order(my_comparision_matrix$first),]
+               my_comparision_matrix=my_comparision_matrix[order(my_comparision_matrix$differ),]
+               my_comparisons <- list()
+               for(one in c(1:nrow(my_comparision_matrix))){
+                 oneterm=as.vector(c(as.character(my_comparision_matrix[one,"first"]),as.character(my_comparision_matrix[one,"second"])))
+                 my_comparisons[[one]]=oneterm
+               }
+   ###进行图形的绘制
+               ###绘制图形qlot
+               library(ggpubr);
+               ##十分之一percent，用于绘图
+               particle=max(diff(data_boxplot_return$Value))/9.5
+               q=qplot(data = data_boxplot_return,x=data_boxplot_return$plot_prio,y=Value,geom = "boxplot",outlier.colour = "black",outlier.colour="black",
+                       ylab = "Value",main = paste("dist_method",distmethod,"hclust_method",clustmethod,sep = "_"))
+               q= q+geom_jitter(colour = data_boxplot_return$cols)
+               q=q+geom_text(data =data_boxplot_return,aes(label=paste("n=",group_count,sep=""),y=min(data_boxplot_return$Value)-particle))
+               q=q+stat_compare_means(aes(label=paste0(..method..,"\n", "p=",..p.format..)),method = "t.test",
+                                      comparisons = my_comparisons,paired = FALSE,#label = "pb.format",
+                                      #hide.ns = FALSE,symnum.args = list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1), symbols = c("****", "***", "**", "*", "ns")),
+                                      label.y = c(seq(max(data_boxplot_return$Value),max(data_boxplot_return$Value)+max(diff(data_boxplot_return$Value))/10*10,particle))[c(1:length(my_comparisons))]
+               )
+               q=q+stat_compare_means(label.y = c(seq(max(data_boxplot_return$Value),max(data_boxplot_return$Value)+max(diff(data_boxplot_return$Value))/10*(length(my_comparisons)+1),particle))[length(my_comparisons)+1] )
+               q=q+geom_hline(yintercept = mean(data_boxplot_return$Value), linetype=2)
+               q=q+stat_compare_means(label = "p.signif", method = "t.test", ref.group = ".all.",label.y =min(data_boxplot_return$Value)-particle/2)# Pairwise comparison against all
+               #由于点数过多交换1,2的位置
+               temp=q$layers[[1]];q$layers[[1]]=q$layers[[2]];q$layers[[2]]=temp
+               tiff(filename = paste(paste("Heatmap_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,sep="_"),".tiff",sep = ""),width = 1000,height = 800)         
+     plot(q)
+               dev.off()
+
+      if(TRUE){
+                 ######
+                 ######get_gene0      boxplot
+                 data_getgene0_boxplot=hcc[,c(getGene0,"group_index_cut")]
+                 data_getgene0_boxplot[,getGene0]=log2(data_getgene0_boxplot[,getGene0]+1)
+                 ##恢复顺序
+                 data_getgene0_boxplot=data_getgene0_boxplot[colnames(data_plot)[hm$colInd],]##变换为热图上的顺序
+                 ##添加plot顺序和groupcount
+                 prio=1;
+                 for(onegroupindex in unique(data_getgene0_boxplot$group_index_cut)){
+                   data_getgene0_boxplot[which(data_getgene0_boxplot$group_index_cut==onegroupindex),"plot_prio"]=
+                     paste(prio,onegroupindex,sep="_")
+                   data_getgene0_boxplot[which(data_getgene0_boxplot$group_index_cut==onegroupindex),"group_count"]=
+                     length(which(data_getgene0_boxplot$group_index_cut==onegroupindex))
+                   prio=prio+1
+                 }
+                 ##添加颜色
+                 cols=data.frame(cols=unique(dendextend::get_leaves_branches_col(hm$colDendrogram)),
+                                 group_index_cut=unique(data_getgene0_boxplot$group_index_cut))
+                 data_getgene0_boxplot=data_getgene0_boxplot[order(data_getgene0_boxplot$plot_prio),]
+                 data_getgene0_boxplot=merge(data_getgene0_boxplot,cols,by.x = "group_index_cut", by.y = "group_index_cut")
+                 ##merge后的恢复plot顺序
+                 data_getgene0_boxplot=data_getgene0_boxplot[order(data_getgene0_boxplot$plot_prio),]
+                 if(TRUE){
+                   ####进行组融合
+                   groups=unique(data_getgene0_boxplot$plot_prio)
+                   merges=list()
+                   for(onemerge in merges){
+                     print(onemerge)
+                     data_getgene0_boxplot[which(data_getgene0_boxplot$plot_prio %in% groups[onemerge]),"plot_prio"]=
+                       groups[onemerge[[1]][1]]
+                     ##重新计算group_count
+                     data_getgene0_boxplot[which(data_getgene0_boxplot$plot_prio %in% groups[onemerge]),"group_count"]=
+                       length(which(data_getgene0_boxplot$plot_prio==groups[onemerge[[1]][1]]))
+                   }
+                   ##重新计算my_comparision组合
+                   my_comparision_matrix=as.data.frame(matrix(ncol=2,t(combn(x=unique(data_getgene0_boxplot$plot_prio),2))))
+                   colnames(my_comparision_matrix)=c("first","second")
+                   for(onerow in c(1:nrow(my_comparision_matrix))){
+                     my_comparision_matrix[onerow,"differ"]=as.numeric(stringi::stri_sub(str=my_comparision_matrix[onerow,"second"],from = stringi::stri_length(my_comparision_matrix[onerow,"second"])))-
+                       as.numeric(stringi::stri_sub(str=my_comparision_matrix[onerow,"first"],from = stringi::stri_length(my_comparision_matrix[onerow,"second"])))
+                   }
+                   ##按照差值进行排序
+                   my_comparision_matrix=my_comparision_matrix[order(my_comparision_matrix$first),]
+                   my_comparision_matrix=my_comparision_matrix[order(my_comparision_matrix$differ),]
+                   my_comparisons <- list()
+                   for(one in c(1:nrow(my_comparision_matrix))){
+                     oneterm=as.vector(c(as.character(my_comparision_matrix[one,"first"]),as.character(my_comparision_matrix[one,"second"])))
+                     my_comparisons[[one]]=oneterm
+                   }
+                 }
+                 ###开始绘图boxplot
+                 particle=max(diff(data_getgene0_boxplot[,getGene0]))/9.5
+                 q1=qplot(data = data_getgene0_boxplot,x=data_getgene0_boxplot$plot_prio,y=data_getgene0_boxplot[,getGene0],geom = "boxplot",outlier.colour = "black",outlier.colour="black",
+                          ylab = "Value",main = paste(getGene0,"_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,"merged",unlist(merges),sep="_")
+                 )
+                 q1= q1+geom_jitter(colour = data_getgene0_boxplot$cols)
+                 q1=q1+geom_text(data =data_getgene0_boxplot,aes(label=paste("n=",group_count,sep=""),y=min(data_getgene0_boxplot[,getGene0])-7.5*particle))
+                 q1=q1+stat_compare_means(aes(label=paste0(..method..,"\n", "p=",..p.format..)),method = "t.test",
+                                          comparisons = my_comparisons,paired = FALSE,label = "pb.format",
+                                          hide.ns = FALSE,symnum.args = list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1), symbols = c("****", "***", "**", "*", "ns")),
+                                          label.y = c(seq(max(data_getgene0_boxplot[,getGene0]),max(data_getgene0_boxplot[,getGene0])+max(diff(data_getgene0_boxplot[,getGene0]))/10*10,particle))[c(1:length(my_comparisons))]
+                 )
+                 q1=q1+stat_compare_means(label.y = c(seq(max(data_getgene0_boxplot[,getGene0]),max(data_getgene0_boxplot[,getGene0])+max(diff(data_getgene0_boxplot[,getGene0]))/10*(length(my_comparisons)+1),particle))[length(my_comparisons)+1] )
+                 q1=q1+geom_hline(yintercept = mean(data_getgene0_boxplot[,getGene0]), linetype=2)
+                 q1=q1+stat_compare_means(label = "p.signif", method = "t.test", ref.group = ".all.",label.y =min(data_getgene0_boxplot[,getGene0])-particle/2)# Pairwise comparison against all
+                 #由于点数过多交换1,2的位置
+                 temp=q1$layers[[1]];q1$layers[[1]]=q1$layers[[2]];q1$layers[[2]]=temp
+                 tiff(filename = paste(paste(getGene0,"_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,"merged",unlist(merges),sep="_"),".tiff",sep = ""),width = 1000,height = 800)         
+                 plot(q1)
+                 dev.off()
+               }###endif
+               
+     
+     if(TRUE){
+     ######
+     ######get_gene0      boxplot
+     data_getgene0_boxplot=hcc[,c(getGene0,"group_index_cut")]
+     data_getgene0_boxplot[,getGene0]=log2(data_getgene0_boxplot[,getGene0]+1)
+     ##恢复顺序
+     data_getgene0_boxplot=data_getgene0_boxplot[colnames(data_plot)[hm$colInd],]##变换为热图上的顺序
+     ##添加plot顺序和groupcount
+     prio=1;
+     for(onegroupindex in unique(data_getgene0_boxplot$group_index_cut)){
+       data_getgene0_boxplot[which(data_getgene0_boxplot$group_index_cut==onegroupindex),"plot_prio"]=
+         paste(prio,onegroupindex,sep="_")
+       data_getgene0_boxplot[which(data_getgene0_boxplot$group_index_cut==onegroupindex),"group_count"]=
+         length(which(data_getgene0_boxplot$group_index_cut==onegroupindex))
+       prio=prio+1
+     }
+     ##添加颜色
+     cols=data.frame(cols=unique(dendextend::get_leaves_branches_col(hm$colDendrogram)),
+                     group_index_cut=unique(data_getgene0_boxplot$group_index_cut))
+     data_getgene0_boxplot=data_getgene0_boxplot[order(data_getgene0_boxplot$plot_prio),]
+     data_getgene0_boxplot=merge(data_getgene0_boxplot,cols,by.x = "group_index_cut", by.y = "group_index_cut")
+     ##merge后的恢复plot顺序
+     data_getgene0_boxplot=data_getgene0_boxplot[order(data_getgene0_boxplot$plot_prio),]
+     if(TRUE){
+           ####进行组融合
+           groups=unique(data_getgene0_boxplot$plot_prio)
+           merges=list(c(1,2),c(4,5))
+           for(onemerge in merges){
+             print(onemerge)
+             data_getgene0_boxplot[which(data_getgene0_boxplot$plot_prio %in% groups[onemerge]),"plot_prio"]=
+               groups[onemerge[[1]][1]]
+             ##重新计算group_count
+             data_getgene0_boxplot[which(data_getgene0_boxplot$plot_prio %in% groups[onemerge]),"group_count"]=
+            length(which(data_getgene0_boxplot$plot_prio==groups[onemerge[[1]][1]]))
+           }
+      ##重新计算my_comparision组合
+           my_comparision_matrix=as.data.frame(matrix(ncol=2,t(combn(x=unique(data_getgene0_boxplot$plot_prio),2))))
+           colnames(my_comparision_matrix)=c("first","second")
+           for(onerow in c(1:nrow(my_comparision_matrix))){
+             my_comparision_matrix[onerow,"differ"]=as.numeric(stringi::stri_sub(str=my_comparision_matrix[onerow,"second"],from = stringi::stri_length(my_comparision_matrix[onerow,"second"])))-
+               as.numeric(stringi::stri_sub(str=my_comparision_matrix[onerow,"first"],from = stringi::stri_length(my_comparision_matrix[onerow,"second"])))
+           }
+           ##按照差值进行排序
+           my_comparision_matrix=my_comparision_matrix[order(my_comparision_matrix$first),]
+           my_comparision_matrix=my_comparision_matrix[order(my_comparision_matrix$differ),]
+           my_comparisons <- list()
+           for(one in c(1:nrow(my_comparision_matrix))){
+             oneterm=as.vector(c(as.character(my_comparision_matrix[one,"first"]),as.character(my_comparision_matrix[one,"second"])))
+             my_comparisons[[one]]=oneterm
+           }
+     }
+     ###开始绘图boxplot
+     particle=max(diff(data_getgene0_boxplot[,getGene0]))/9.5
+     q1=qplot(data = data_getgene0_boxplot,x=data_getgene0_boxplot$plot_prio,y=data_getgene0_boxplot[,getGene0],geom = "boxplot",outlier.colour = "black",outlier.colour="black",
+             ylab = "Value",main = paste(getGene0,"_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,"merged",unlist(merges),sep="_")
+             )
+     q1= q1+geom_jitter(colour = data_getgene0_boxplot$cols)
+     q1=q1+geom_text(data =data_getgene0_boxplot,aes(label=paste("n=",group_count,sep=""),y=min(data_getgene0_boxplot[,getGene0])-7.5*particle))
+     q1=q1+stat_compare_means(aes(label=paste0(..method..,"\n", "p=",..p.format..)),method = "t.test",
+                            comparisons = my_comparisons,paired = FALSE,label = "pb.format",
+                            hide.ns = FALSE,symnum.args = list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1), symbols = c("****", "***", "**", "*", "ns")),
+                            label.y = c(seq(max(data_getgene0_boxplot[,getGene0]),max(data_getgene0_boxplot[,getGene0])+max(diff(data_getgene0_boxplot[,getGene0]))/10*10,particle))[c(1:length(my_comparisons))]
+     )
+     q1=q1+stat_compare_means(label.y = c(seq(max(data_getgene0_boxplot[,getGene0]),max(data_getgene0_boxplot[,getGene0])+max(diff(data_getgene0_boxplot[,getGene0]))/10*(length(my_comparisons)+1),particle))[length(my_comparisons)+1] )
+     q1=q1+geom_hline(yintercept = mean(data_getgene0_boxplot[,getGene0]), linetype=2)
+     q1=q1+stat_compare_means(label = "p.signif", method = "t.test", ref.group = ".all.",label.y =min(data_getgene0_boxplot[,getGene0])-particle/2)# Pairwise comparison against all
+     #由于点数过多交换1,2的位置
+     temp=q1$layers[[1]];q1$layers[[1]]=q1$layers[[2]];q1$layers[[2]]=temp
+     tiff(filename = paste(paste(getGene0,"_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,"merged",unlist(merges),sep="_"),".tiff",sep = ""),width = 1000,height = 800)         
+     plot(q1)
+     dev.off()
+     }###1245endif
+      
+     if(TRUE){
+                 ######
+                 ######get_gene0      boxplot
+                 data_getgene0_boxplot=hcc[,c(getGene0,"group_index_cut")]
+                 data_getgene0_boxplot[,getGene0]=log2(data_getgene0_boxplot[,getGene0]+1)
+                 ##恢复顺序
+                 data_getgene0_boxplot=data_getgene0_boxplot[colnames(data_plot)[hm$colInd],]##变换为热图上的顺序
+                 ##添加plot顺序和groupcount
+                 prio=1;
+                 for(onegroupindex in unique(data_getgene0_boxplot$group_index_cut)){
+                   data_getgene0_boxplot[which(data_getgene0_boxplot$group_index_cut==onegroupindex),"plot_prio"]=
+                     paste(prio,onegroupindex,sep="_")
+                   data_getgene0_boxplot[which(data_getgene0_boxplot$group_index_cut==onegroupindex),"group_count"]=
+                     length(which(data_getgene0_boxplot$group_index_cut==onegroupindex))
+                   prio=prio+1
+                 }
+                 ##添加颜色
+                 cols=data.frame(cols=unique(dendextend::get_leaves_branches_col(hm$colDendrogram)),
+                                 group_index_cut=unique(data_getgene0_boxplot$group_index_cut))
+                 data_getgene0_boxplot=data_getgene0_boxplot[order(data_getgene0_boxplot$plot_prio),]
+                 data_getgene0_boxplot=merge(data_getgene0_boxplot,cols,by.x = "group_index_cut", by.y = "group_index_cut")
+                 ##merge后的恢复plot顺序
+                 data_getgene0_boxplot=data_getgene0_boxplot[order(data_getgene0_boxplot$plot_prio),]
+                 if(TRUE){
+                   ####进行组融合
+                   groups=unique(data_getgene0_boxplot$plot_prio)
+                   merges=list(c(1,2),c(3,4))
+                   for(onemerge in merges){
+                     print(onemerge)
+                     data_getgene0_boxplot[which(data_getgene0_boxplot$plot_prio %in% groups[onemerge]),"plot_prio"]=
+                       groups[onemerge[[1]][1]]
+                     ##重新计算group_count
+                     data_getgene0_boxplot[which(data_getgene0_boxplot$plot_prio %in% groups[onemerge]),"group_count"]=
+                       length(which(data_getgene0_boxplot$plot_prio==groups[onemerge[[1]][1]]))
+                   }
+                   ##重新计算my_comparision组合
+                   my_comparision_matrix=as.data.frame(matrix(ncol=2,t(combn(x=unique(data_getgene0_boxplot$plot_prio),2))))
+                   colnames(my_comparision_matrix)=c("first","second")
+                   for(onerow in c(1:nrow(my_comparision_matrix))){
+                     my_comparision_matrix[onerow,"differ"]=as.numeric(stringi::stri_sub(str=my_comparision_matrix[onerow,"second"],from = stringi::stri_length(my_comparision_matrix[onerow,"second"])))-
+                       as.numeric(stringi::stri_sub(str=my_comparision_matrix[onerow,"first"],from = stringi::stri_length(my_comparision_matrix[onerow,"second"])))
+                   }
+                   ##按照差值进行排序
+                   my_comparision_matrix=my_comparision_matrix[order(my_comparision_matrix$first),]
+                   my_comparision_matrix=my_comparision_matrix[order(my_comparision_matrix$differ),]
+                   my_comparisons <- list()
+                   for(one in c(1:nrow(my_comparision_matrix))){
+                     oneterm=as.vector(c(as.character(my_comparision_matrix[one,"first"]),as.character(my_comparision_matrix[one,"second"])))
+                     my_comparisons[[one]]=oneterm
+                   }
+                 }
+                 ###开始绘图boxplot
+                 particle=max(diff(data_getgene0_boxplot[,getGene0]))/9.5
+                 q1=qplot(data = data_getgene0_boxplot,x=data_getgene0_boxplot$plot_prio,y=data_getgene0_boxplot[,getGene0],geom = "boxplot",outlier.colour = "black",outlier.colour="black",
+                          ylab = "Value",main = paste(getGene0,"_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,"merged",unlist(merges),sep="_")
+                 )
+                 q1= q1+geom_jitter(colour = data_getgene0_boxplot$cols)
+                 q1=q1+geom_text(data =data_getgene0_boxplot,aes(label=paste("n=",group_count,sep=""),y=min(data_getgene0_boxplot[,getGene0])-7.5*particle))
+                 q1=q1+stat_compare_means(aes(label=paste0(..method..,"\n", "p=",..p.format..)),method = "t.test",
+                                          comparisons = my_comparisons,paired = FALSE,label = "pb.format",
+                                          hide.ns = FALSE,symnum.args = list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1), symbols = c("****", "***", "**", "*", "ns")),
+                                          label.y = c(seq(max(data_getgene0_boxplot[,getGene0]),max(data_getgene0_boxplot[,getGene0])+max(diff(data_getgene0_boxplot[,getGene0]))/10*10,particle))[c(1:length(my_comparisons))]
+                 )
+                 q1=q1+stat_compare_means(label.y = c(seq(max(data_getgene0_boxplot[,getGene0]),max(data_getgene0_boxplot[,getGene0])+max(diff(data_getgene0_boxplot[,getGene0]))/10*(length(my_comparisons)+1),particle))[length(my_comparisons)+1] )
+                 q1=q1+geom_hline(yintercept = mean(data_getgene0_boxplot[,getGene0]), linetype=2)
+                 q1=q1+stat_compare_means(label = "p.signif", method = "t.test", ref.group = ".all.",label.y =min(data_getgene0_boxplot[,getGene0])-particle/2)# Pairwise comparison against all
+                 #由于点数过多交换1,2的位置
+                 temp=q1$layers[[1]];q1$layers[[1]]=q1$layers[[2]];q1$layers[[2]]=temp
+                 tiff(filename = paste(paste(getGene0,"_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,"merged",unlist(merges),sep="_"),".tiff",sep = ""),width = 1000,height = 800)         
+                 plot(q1)
+                 dev.off()
+               }###1234endif
+               
+     if(TRUE){
+                 ######
+                 ######get_gene0      boxplot
+                 data_getgene0_boxplot=hcc[,c(getGene0,"group_index_cut")]
+                 data_getgene0_boxplot[,getGene0]=log2(data_getgene0_boxplot[,getGene0]+1)
+                 ##恢复顺序
+                 data_getgene0_boxplot=data_getgene0_boxplot[colnames(data_plot)[hm$colInd],]##变换为热图上的顺序
+                 ##添加plot顺序和groupcount
+                 prio=1;
+                 for(onegroupindex in unique(data_getgene0_boxplot$group_index_cut)){
+                   data_getgene0_boxplot[which(data_getgene0_boxplot$group_index_cut==onegroupindex),"plot_prio"]=
+                     paste(prio,onegroupindex,sep="_")
+                   data_getgene0_boxplot[which(data_getgene0_boxplot$group_index_cut==onegroupindex),"group_count"]=
+                     length(which(data_getgene0_boxplot$group_index_cut==onegroupindex))
+                   prio=prio+1
+                 }
+                 ##添加颜色
+                 cols=data.frame(cols=unique(dendextend::get_leaves_branches_col(hm$colDendrogram)),
+                                 group_index_cut=unique(data_getgene0_boxplot$group_index_cut))
+                 data_getgene0_boxplot=data_getgene0_boxplot[order(data_getgene0_boxplot$plot_prio),]
+                 data_getgene0_boxplot=merge(data_getgene0_boxplot,cols,by.x = "group_index_cut", by.y = "group_index_cut")
+                 ##merge后的恢复plot顺序
+                 data_getgene0_boxplot=data_getgene0_boxplot[order(data_getgene0_boxplot$plot_prio),]
+                 if(TRUE){
+                   ####进行组融合
+                   groups=unique(data_getgene0_boxplot$plot_prio)
+                   merges=list(c(2,3,4))
+                   for(onemerge in merges){
+                     print(onemerge)
+                     data_getgene0_boxplot[which(data_getgene0_boxplot$plot_prio %in% groups[onemerge]),"plot_prio"]=
+                       groups[onemerge[[1]][1]]
+                     ##重新计算group_count
+                     data_getgene0_boxplot[which(data_getgene0_boxplot$plot_prio %in% groups[onemerge]),"group_count"]=
+                       length(which(data_getgene0_boxplot$plot_prio==groups[onemerge[[1]][1]]))
+                   }
+                   ##重新计算my_comparision组合
+                   my_comparision_matrix=as.data.frame(matrix(ncol=2,t(combn(x=unique(data_getgene0_boxplot$plot_prio),2))))
+                   colnames(my_comparision_matrix)=c("first","second")
+                   for(onerow in c(1:nrow(my_comparision_matrix))){
+                     my_comparision_matrix[onerow,"differ"]=as.numeric(stringi::stri_sub(str=my_comparision_matrix[onerow,"second"],from = stringi::stri_length(my_comparision_matrix[onerow,"second"])))-
+                       as.numeric(stringi::stri_sub(str=my_comparision_matrix[onerow,"first"],from = stringi::stri_length(my_comparision_matrix[onerow,"second"])))
+                   }
+                   ##按照差值进行排序
+                   my_comparision_matrix=my_comparision_matrix[order(my_comparision_matrix$first),]
+                   my_comparision_matrix=my_comparision_matrix[order(my_comparision_matrix$differ),]
+                   my_comparisons <- list()
+                   for(one in c(1:nrow(my_comparision_matrix))){
+                     oneterm=as.vector(c(as.character(my_comparision_matrix[one,"first"]),as.character(my_comparision_matrix[one,"second"])))
+                     my_comparisons[[one]]=oneterm
+                   }
+                 }
+                 ###开始绘图boxplot
+                 particle=max(diff(data_getgene0_boxplot[,getGene0]))/9.5
+                 q1=qplot(data = data_getgene0_boxplot,x=data_getgene0_boxplot$plot_prio,y=data_getgene0_boxplot[,getGene0],geom = "boxplot",outlier.colour = "black",outlier.colour="black",
+                          ylab = "Value",main =paste(getGene0,"_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,"merged",unlist(merges),sep="_")
+                 )
+                 q1= q1+geom_jitter(colour = data_getgene0_boxplot$cols)
+                 q1=q1+geom_text(data =data_getgene0_boxplot,aes(label=paste("n=",group_count,sep=""),y=min(data_getgene0_boxplot[,getGene0])-7.5*particle))
+                 q1=q1+stat_compare_means(aes(label=paste0(..method..,"\n", "p=",..p.format..)),method = "t.test",
+                                          comparisons = my_comparisons,paired = FALSE,label = "pb.format",
+                                          hide.ns = FALSE,symnum.args = list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1), symbols = c("****", "***", "**", "*", "ns")),
+                                          label.y = c(seq(max(data_getgene0_boxplot[,getGene0]),max(data_getgene0_boxplot[,getGene0])+max(diff(data_getgene0_boxplot[,getGene0]))/10*10,particle))[c(1:length(my_comparisons))]
+                 )
+                 q1=q1+stat_compare_means(label.y = c(seq(max(data_getgene0_boxplot[,getGene0]),max(data_getgene0_boxplot[,getGene0])+max(diff(data_getgene0_boxplot[,getGene0]))/10*(length(my_comparisons)+1),particle))[length(my_comparisons)+1] )
+                 q1=q1+geom_hline(yintercept = mean(data_getgene0_boxplot[,getGene0]), linetype=2)
+                 q1=q1+stat_compare_means(label = "p.signif", method = "t.test", ref.group = ".all.",label.y =min(data_getgene0_boxplot[,getGene0])-particle/2)# Pairwise comparison against all
+                 #由于点数过多交换1,2的位置
+                 temp=q1$layers[[1]];q1$layers[[1]]=q1$layers[[2]];q1$layers[[2]]=temp
+                 tiff(filename = paste(paste(getGene0,"_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,"merged",unlist(merges),sep="_"),".tiff",sep = ""),width = 1000,height = 800)         
+                 plot(q1)
+                 dev.off()
+               }###endif
+               
+               
+               return(hm)
+  }
 
 
 ##############开始循环餐数
 Cluster_Method<-c( 
-   "ward.D",
-   "ward.D2",
-   "single",
+  "ward.D",
+  "ward.D2",
+  "single",
   "complete",
    "average",
    "mcquitty",
@@ -179,7 +575,8 @@ Cluster_Method<-c(
    "centroid"
 )
 Dist_Methods<-  c("euclidean"
-                  #, "maximum", "manhattan", 
+                  #, "maximum"
+                  ,"manhattan"#, 
                   #"canberra", 
                   #"binary", 
                   #"minkowski",
@@ -201,8 +598,6 @@ if(FALSE){
       goHeatmap(d1=data_plot,distmethod = onedistmethod,clustmethod = oneclustmethod)
     }
   }}
-
-
 
 
 
@@ -321,8 +716,11 @@ plot_together=function(){
   for(onedistmethod in Dist_Methods){
     for(oneclustmethod in Cluster_Method){
       #win.graph();
+      tryCatch({
       h=goHeatmap(d1=data_plot,distmethod = onedistmethod,clustmethod = oneclustmethod);
+      },error=function(e){cat("ERROR :",conditionMessage(e),"\n")});
       #h自动输出热图，不可控
+      tryCatch({
       q=goboxplot(d2=data_plot
                   ,heatmap_result=h
                   ,getGene0_ = getGene0
@@ -330,8 +728,9 @@ plot_together=function(){
                   ,one_clust_method = oneclustmethod
       );
       plot(q)
+      },error=function(e){cat("ERROR :",conditionMessage(e),"\n")})
       #win.graph();
     }
   }
 }
-
+plot_together();

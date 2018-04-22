@@ -32,7 +32,12 @@ generate_Index_Gene_Table<-function(file){
 }
 
 
-
+mean_=function(x){
+  x=unlist(x)
+  qs=quantile(x)
+  x=intersect(x[which(x>qs[2])],x[which(x<qs[4])])
+  mean(x,na.rm = TRUE)
+}
 
 
 
