@@ -5,9 +5,7 @@ output:
 ---
 
 ```{r setup, include=FALSE,plotly=TRUE,echo=FALSE,warning=FALSE,error=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
 source("F:\\min-labs_paper\\work\\AGAIN_TCGA_PRAD\\AGAIN_TCGA_PRAD.R")
-dev.list()
 ```
 
 

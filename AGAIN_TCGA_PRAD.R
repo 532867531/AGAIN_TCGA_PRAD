@@ -1,4 +1,4 @@
-###TCGA Provisional , PMN-SIGNATURE
+###TCGA Provisional , PMN-SIGNATURE:::Fig.6C
 source("function_heatmap_cluster_combn_after_jianjun.R")
 EDA=function(x){
   windows()
@@ -10,6 +10,7 @@ EDA=function(x){
   mtext("title",outer = TRUE)
   par(mfrow=c(1,1))
 }
+fig_order=1
 ##定义参数列表
 para_List=c()
 ori_low=67;ori_middle=260;ori_high=171##CXCL17
@@ -178,7 +179,8 @@ library(magrittr)
    go_wts=(hcc$block_weight)
     
   library(gplots);
-   tiff(filename = paste(paste("Heatmap","Distmethod",distmethod,"Clustermethod",clustmethod,sep="_"),".tiff",sep=""),width = 1000,height = 800)
+   tiff(filename = paste(fig_order,paste("Heatmap","Distmethod",distmethod,"Clustermethod",clustmethod,sep="_"),".tiff",sep=""),width = 1000,height = 800)
+   fig_order<<-fig_order+1
     hm<<-heatmap.2(x=as.matrix(d1),col=colorRampPalette(c("blue", "white", "red"))(length(BREAKS)-1), distfun=myDist,hclustfun=myClust,
                scale="none",
                trace="none",
@@ -261,7 +263,8 @@ dev.off()
                q=q+stat_compare_means(label = "p.signif", method = "t.test", ref.group = ".all.",label.y =min(data_boxplot_return$Value)-particle/2)# Pairwise comparison against all
                #由于点数过多交换1,2的位置
                temp=q$layers[[1]];q$layers[[1]]=q$layers[[2]];q$layers[[2]]=temp
-               tiff(filename = paste(paste("Heatmap_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,sep="_"),".tiff",sep = ""),width = 1000,height = 800)         
+               tiff(filename = paste(fig_order,paste("Heatmap_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,sep="_"),".tiff",sep = ""),width = 1000,height = 800)         
+               fig_order<<-fig_order+1
      plot(q)
                dev.off()
 
@@ -319,7 +322,7 @@ dev.off()
                  ###开始绘图boxplot
                  particle=max(diff(data_getgene0_boxplot[,getGene0]))/9.5
                  q1=qplot(data = data_getgene0_boxplot,x=data_getgene0_boxplot$plot_prio,y=data_getgene0_boxplot[,getGene0],geom = "boxplot",outlier.colour = "black",outlier.colour="black",
-                          ylab = "Value",main = paste(getGene0,"_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,"merged",unlist(merges),sep="_")
+                          ylab = "Value",main = paste(getGene0,"_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,"merged",paste(unlist(merges),collapse="_"),sep="_")
                  )
                  q1= q1+geom_jitter(colour = data_getgene0_boxplot$cols)
                  q1=q1+geom_text(data =data_getgene0_boxplot,aes(label=paste("n=",group_count,sep=""),y=min(data_getgene0_boxplot[,getGene0])-7.5*particle))
@@ -333,7 +336,8 @@ dev.off()
                  q1=q1+stat_compare_means(label = "p.signif", method = "t.test", ref.group = ".all.",label.y =min(data_getgene0_boxplot[,getGene0])-particle/2)# Pairwise comparison against all
                  #由于点数过多交换1,2的位置
                  temp=q1$layers[[1]];q1$layers[[1]]=q1$layers[[2]];q1$layers[[2]]=temp
-                 tiff(filename = paste(paste(getGene0,"_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,"merged",unlist(merges),sep="_"),".tiff",sep = ""),width = 1000,height = 800)         
+                 tiff(filename = paste(fig_order,paste(getGene0,"_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,"merged",paste(unlist(merges),collapse="_"),sep="_"),".tiff",sep = ""),width = 1000,height = 800)         
+                 fig_order<<-fig_order+1
                  plot(q1)
                  dev.off()
                }###endif
@@ -393,7 +397,7 @@ dev.off()
      ###开始绘图boxplot
      particle=max(diff(data_getgene0_boxplot[,getGene0]))/9.5
      q1=qplot(data = data_getgene0_boxplot,x=data_getgene0_boxplot$plot_prio,y=data_getgene0_boxplot[,getGene0],geom = "boxplot",outlier.colour = "black",outlier.colour="black",
-             ylab = "Value",main = paste(getGene0,"_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,"merged",unlist(merges),sep="_")
+             ylab = "Value",main = paste(getGene0,"_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,"merged",paste(unlist(merges),collapse="_"),sep="_")
              )
      q1= q1+geom_jitter(colour = data_getgene0_boxplot$cols)
      q1=q1+geom_text(data =data_getgene0_boxplot,aes(label=paste("n=",group_count,sep=""),y=min(data_getgene0_boxplot[,getGene0])-7.5*particle))
@@ -407,7 +411,8 @@ dev.off()
      q1=q1+stat_compare_means(label = "p.signif", method = "t.test", ref.group = ".all.",label.y =min(data_getgene0_boxplot[,getGene0])-particle/2)# Pairwise comparison against all
      #由于点数过多交换1,2的位置
      temp=q1$layers[[1]];q1$layers[[1]]=q1$layers[[2]];q1$layers[[2]]=temp
-     tiff(filename = paste(paste(getGene0,"_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,"merged",unlist(merges),sep="_"),".tiff",sep = ""),width = 1000,height = 800)         
+     tiff(filename = paste(fig_order,paste(getGene0,"_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,"merged",paste(unlist(merges),collapse="_"),sep="_"),".tiff",sep = ""),width = 1000,height = 800)         
+     fig_order<<-fig_order+1
      plot(q1)
      dev.off()
      }###1245endif
@@ -466,7 +471,7 @@ dev.off()
                  ###开始绘图boxplot
                  particle=max(diff(data_getgene0_boxplot[,getGene0]))/9.5
                  q1=qplot(data = data_getgene0_boxplot,x=data_getgene0_boxplot$plot_prio,y=data_getgene0_boxplot[,getGene0],geom = "boxplot",outlier.colour = "black",outlier.colour="black",
-                          ylab = "Value",main = paste(getGene0,"_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,"merged",unlist(merges),sep="_")
+                          ylab = "Value",main = paste(getGene0,"_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,"merged",paste(unlist(merges),collapse="_"),sep="_")
                  )
                  q1= q1+geom_jitter(colour = data_getgene0_boxplot$cols)
                  q1=q1+geom_text(data =data_getgene0_boxplot,aes(label=paste("n=",group_count,sep=""),y=min(data_getgene0_boxplot[,getGene0])-7.5*particle))
@@ -480,7 +485,8 @@ dev.off()
                  q1=q1+stat_compare_means(label = "p.signif", method = "t.test", ref.group = ".all.",label.y =min(data_getgene0_boxplot[,getGene0])-particle/2)# Pairwise comparison against all
                  #由于点数过多交换1,2的位置
                  temp=q1$layers[[1]];q1$layers[[1]]=q1$layers[[2]];q1$layers[[2]]=temp
-                 tiff(filename = paste(paste(getGene0,"_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,"merged",unlist(merges),sep="_"),".tiff",sep = ""),width = 1000,height = 800)         
+                 tiff(filename = paste(fig_order,paste(getGene0,"_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,"merged",paste(unlist(merges),collapse="_"),sep="_"),".tiff",sep = ""),width = 1000,height = 800)         
+                 fig_order<<-fig_order+1
                  plot(q1)
                  dev.off()
                }###1234endif
@@ -539,7 +545,7 @@ dev.off()
                  ###开始绘图boxplot
                  particle=max(diff(data_getgene0_boxplot[,getGene0]))/9.5
                  q1=qplot(data = data_getgene0_boxplot,x=data_getgene0_boxplot$plot_prio,y=data_getgene0_boxplot[,getGene0],geom = "boxplot",outlier.colour = "black",outlier.colour="black",
-                          ylab = "Value",main =paste(getGene0,"_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,"merged",unlist(merges),sep="_")
+                          ylab = "Value",main =paste(getGene0,"_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,"merged",paste(unlist(merges),collapse="_"),sep="_")
                  )
                  q1= q1+geom_jitter(colour = data_getgene0_boxplot$cols)
                  q1=q1+geom_text(data =data_getgene0_boxplot,aes(label=paste("n=",group_count,sep=""),y=min(data_getgene0_boxplot[,getGene0])-7.5*particle))
@@ -553,7 +559,8 @@ dev.off()
                  q1=q1+stat_compare_means(label = "p.signif", method = "t.test", ref.group = ".all.",label.y =min(data_getgene0_boxplot[,getGene0])-particle/2)# Pairwise comparison against all
                  #由于点数过多交换1,2的位置
                  temp=q1$layers[[1]];q1$layers[[1]]=q1$layers[[2]];q1$layers[[2]]=temp
-                 tiff(filename = paste(paste(getGene0,"_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,"merged",unlist(merges),sep="_"),".tiff",sep = ""),width = 1000,height = 800)         
+                 tiff(filename = paste(fig_order,paste(getGene0,"_blockplot","Distmethod",distmethod,"Clustermethod",clustmethod,"merged",paste(unlist(merges),collapse="_"),sep="_"),".tiff",sep = ""),width = 1000,height = 800)         
+                 fig_order<<-fig_order+1
                  plot(q1)
                  dev.off()
                }###endif
@@ -733,4 +740,7 @@ plot_together=function(){
     }
   }
 }
-plot_together();
+
+plot_together()
+
+# library(rmarkdown);rmarkdown::render("F:\\min-labs_paper\\work\\AGAIN_TCGA_PRAD\\test.Rmd","html_document")
