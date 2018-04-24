@@ -33,7 +33,7 @@ k_n0=3
 path="D:/min数据/tcga/lihc_tcga/lihc_tcga/"
 ##path="D:\\min数据\\tcga\\prad_su2c_2015\\prad_su2c_2015\\"
 #out_put_dir=paste(path,getGene0,whichSignature,"\\",sep="")
-out_put_dir=paste("I:\\temp",getGene0,whichSignature,"\\",sep="\\")
+out_put_dir=paste("g:\\temp",getGene0,whichSignature,"\\",sep="\\")
 label_Func_readInRnaSeqFile=function(){print("读入RNAseq表达数据！")}
 file=paste(path,list.files(path = path,pattern = "data.*?RNA_Seq.*?expression.*?median.*?txt"),sep="")
 RDSfile=sub(pattern = "txt",replacement = "RDS",perl=TRUE,x=file)
