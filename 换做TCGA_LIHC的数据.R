@@ -1,7 +1,7 @@
 print(commandArgs())
 ###TCGA_LIHC
-setwd("F:/min-labs_paper/work/AGAIN_TCGA_PRAD/")
 source("function_heatmap_cluster_combn_after_jianjun.R")
+setwd("E:/data/tcga/lihc_tcga/lihc_tcga")
 EDA=function(x){
   windows()
   par(mfrow=c(3,2))
@@ -30,10 +30,10 @@ ref_Gene="ZBTB7A"
 ref_Gene1="PTEN"
 k_n0=3
 ##读取数据ran_seq_median
-path="D:/min数据/tcga/lihc_tcga/lihc_tcga/"
+path="E:/data/tcga/lihc_tcga/lihc_tcga/"
 ##path="D:\\min数据\\tcga\\prad_su2c_2015\\prad_su2c_2015\\"
 #out_put_dir=paste(path,getGene0,whichSignature,"\\",sep="")
-out_put_dir=paste("g:\\temp",getGene0,whichSignature,"\\",sep="\\")
+out_put_dir=paste("e:\\temp",getGene0,whichSignature,"\\",sep="\\")
 label_Func_readInRnaSeqFile=function(){print("读入RNAseq表达数据！")}
 file=paste(path,list.files(path = path,pattern = "data.*?RNA_Seq.*?expression.*?median.*?txt"),sep="")
 RDSfile=sub(pattern = "txt",replacement = "RDS",perl=TRUE,x=file)
@@ -780,13 +780,12 @@ par_fun_plot_together<-function(input_x){
 
 
 
-
-
   # combinations=merge(Dist_Methods,Cluster_Method)
   # apply(combinations,MARGIN = 1, FUN = par_fun_plot_together)
 plot_together();  
 
 
 
-source("F:/min-labs_paper/work/AGAIN_TCGA_PRAD/sendMail.R")
+source("E:/src/r/AGAIN_TCGA_PRAD/sendMail.R")
 goMail(paste(getGene0,whichSignature,sep="_"))
+
