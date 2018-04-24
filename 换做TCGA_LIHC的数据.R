@@ -15,6 +15,7 @@ EDA=function(x){
 fig_order=1
 ##定义参数列表
 para_List=commandArgs();print(para_List[3]);
+
 if(is.na(para_List[8])){message("请输出基因3");quit(save = "no")}
 getGene0=para_List[8]
 ori_low=67;ori_middle=260;ori_high=171##CXCL17
@@ -88,6 +89,7 @@ PMN_geneSignatures=c("ANPEP","CD38","CSF3","CXCR2","CD80","IDO","SLEB2","CD274",
 #Mo_geneSignatures0=c("ARG1","CCL2","CD40","IL4R","FCGR2A","CD68","CD33","CSF1R","ITGAM","HLA-DRB1","FOXP3","PDCDILG2","CD163","LY75","PTPRC","CCR2","CD200R1","IL10","FCER2")
 Mo_geneSignatures=c("ARG1","CCL2","CD40","IL4R","FCGR2A","CD68","LOC116196","CSF1R","ITGAM","HLA-DRB1","JM2","PDCD1LG2","CD163","LY75","PTPRC","LOC90262","CD200R1","IL10","FCER2")
 T_geneSignatures=c("HLA-DOB","CXCL10","CXCL9","ICOS","CD8A","GZMK","HLA-DOA","HLA-DMB","CCL2","IRF1","HLA-DMA","CCL4","CCL3")
+PI3K_AKT_mTOR_geneSignatures=c("PIK3CA","PIK3R1","PIK3R2","PTEN","PDPK1","AKT1","AKT2","FOXO1","FOXO3","FRAP2","RICTOR","TSC1","LOC124054","RHEB","AKT1S1","LOC654218","MLST8")
 geneSignatures=eval(parse(text = paste(whichSignature,"_geneSignatures",sep = "")))
 
 useCbioportal=FALSE
@@ -753,6 +755,38 @@ plot_together=function(){
   }
 }
 setwd(out_put_dir)
-plot_together()
+#plot_together()
 
 
+par_fun_plot_together<-function(input_x){
+  print(input_x);
+  onedistmethod=input_x[1];oneclustmethod=input_x[2];
+  #win.graph();
+  tryCatch({
+    h=goHeatmap(d1=data_plot,distmethod = onedistmethod,clustmethod = oneclustmethod);
+  },error=function(e){cat("ERROR :",conditionMessage(e),"\n")});
+  #h自动输出热图，不可控
+  tryCatch({
+    q=goboxplot(d2=data_plot
+                ,heatmap_result=h
+                ,getGene0_ = getGene0
+                ,one_dist_method = onedistmethod
+                ,one_clust_method = oneclustmethod
+    );
+    plot(q)
+  },error=function(e){cat("ERROR :",conditionMessage(e),"\n")})
+  #win.graph();
+}
+
+
+
+
+
+  # combinations=merge(Dist_Methods,Cluster_Method)
+  # apply(combinations,MARGIN = 1, FUN = par_fun_plot_together)
+plot_together();  
+
+
+
+source("F:/min-labs_paper/work/AGAIN_TCGA_PRAD/sendMail.R")
+goMail(paste(getGene0,whichSignature,sep="_"))
